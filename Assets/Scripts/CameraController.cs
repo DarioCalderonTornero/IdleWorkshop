@@ -1,9 +1,8 @@
 ﻿using UnityEngine;
-using UnityEngine.InputSystem;
 
 /// <summary>
 /// Controlador de cámara 2D para juego idle.
-/// Compatible con el New Input System de Unity 6.
+/// Se suscribe a InputManager en vez de acceder al hardware directamente.
 /// Permite mover la cámara arrastrando (ratón o dedo) dentro de unos límites definidos.
 /// Incluye inercia suave al soltar.
 /// </summary>
@@ -27,6 +26,7 @@ public class CameraController : MonoBehaviour
     private Camera _cam;
     private bool _isDragging;
     private Vector3 _dragOriginWorld;
+    private Vector2 _currentScreenPos;
     private Vector2 _velocity;
 
     // ── Unity ───────────────────────────────────────────────────────
@@ -35,73 +35,62 @@ public class CameraController : MonoBehaviour
         _cam = GetComponent<Camera>();
     }
 
+    private void OnEnable()
+    {
+        if (InputManager.Instance == null) return;
+
+        InputManager.Instance.OnDragStarted += HandleDragStarted;
+        InputManager.Instance.OnDragEnded += HandleDragEnded;
+        InputManager.Instance.OnPointerPosition += HandlePointerPosition;
+    }
+
+    private void OnDisable()
+    {
+        if (InputManager.Instance == null) return;
+
+        InputManager.Instance.OnDragStarted -= HandleDragStarted;
+        InputManager.Instance.OnDragEnded -= HandleDragEnded;
+        InputManager.Instance.OnPointerPosition -= HandlePointerPosition;
+    }
+
     private void Update()
     {
-        HandleInput();
-
-        if (!_isDragging && useInertia)
+        if (_isDragging)
+            ApplyDrag();
+        else if (useInertia)
             ApplyInertia();
 
         ClampPosition();
     }
 
-    // ── Input (New Input System) ─────────────────────────────────────
-    private void HandleInput()
+    // ── Callbacks de InputManager ────────────────────────────────────
+    private void HandleDragStarted()
     {
-        var mouse = Mouse.current;
-        var touch = Touchscreen.current;
+        _isDragging = true;
+        _velocity = Vector2.zero;
+        _dragOriginWorld = GetWorldPoint(_currentScreenPos);
+    }
 
-        bool pressedThisFrame = false;
-        bool heldThisFrame = false;
-        bool releasedThisFrame = false;
-        Vector2 screenPos = Vector2.zero;
+    private void HandleDragEnded()
+    {
+        _isDragging = false;
+    }
 
-        // -- Ratón --
-        if (mouse != null)
-        {
-            pressedThisFrame = mouse.leftButton.wasPressedThisFrame;
-            heldThisFrame = mouse.leftButton.isPressed;
-            releasedThisFrame = mouse.leftButton.wasReleasedThisFrame;
-            screenPos = mouse.position.ReadValue();
-        }
+    private void HandlePointerPosition(Vector2 screenPos)
+    {
+        _currentScreenPos = screenPos;
+    }
 
-        // -- Táctil (un dedo) --
-        if (touch != null && touch.touches.Count > 0)
-        {
-            var finger = touch.touches[0];
-            pressedThisFrame = pressedThisFrame || finger.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Began;
-            heldThisFrame = heldThisFrame || finger.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Moved
-                                                  || finger.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Stationary;
-            releasedThisFrame = releasedThisFrame || finger.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Ended
-                                                  || finger.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Canceled;
-            screenPos = finger.position.ReadValue();
-        }
+    // ── Drag ─────────────────────────────────────────────────────────
+    private void ApplyDrag()
+    {
+        Vector3 currentWorld = GetWorldPoint(_currentScreenPos);
+        Vector3 delta = _dragOriginWorld - currentWorld;
 
-        // ---- Inicio del drag ----
-        if (pressedThisFrame)
-        {
-            _isDragging = true;
-            _velocity = Vector2.zero;
-            _dragOriginWorld = GetWorldPoint(screenPos);
-        }
+        _velocity = delta / Time.deltaTime;
 
-        // ---- Durante el drag ----
-        if (heldThisFrame && _isDragging)
-        {
-            Vector3 currentWorld = GetWorldPoint(screenPos);
-            Vector3 delta = _dragOriginWorld - currentWorld;
-
-            _velocity = delta / Time.deltaTime;
-
-            transform.position += delta * dragSpeed;
-            _dragOriginWorld = GetWorldPoint(screenPos);
-        }
-
-        // ---- Fin del drag ----
-        if (releasedThisFrame)
-        {
-            _isDragging = false;
-        }
+        transform.position += delta * dragSpeed;
+        _dragOriginWorld = GetWorldPoint(_currentScreenPos);
     }
 
     // ── Inercia ──────────────────────────────────────────────────────

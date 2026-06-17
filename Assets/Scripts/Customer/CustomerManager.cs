@@ -4,6 +4,8 @@ using UnityEngine;
 
 /// <summary>
 /// Spawner y gestor de la cola de clientes.
+/// No conoce a ningún Worker directamente.
+/// Se comunica con las WorkStations disponibles para repartir trabajo.
 /// </summary>
 public class CustomerManager : MonoBehaviour
 {
@@ -27,17 +29,16 @@ public class CustomerManager : MonoBehaviour
     [SerializeField] private float spawnInterval = 4f;
     [SerializeField] private int maxCustomers = 5;
 
-    [Header("Referencias")]
-    [SerializeField] private PlayerController player;
+    [Header("WorkStations")]
+    [Tooltip("Lista de todas las WorkStations disponibles en el taller")]
+    [SerializeField] private List<WorkStation> workStations = new();
 
+    // ── Estado ──────────────────────────────────────────────────────
     private readonly List<Customer> _queue = new();
 
     // ── Unity ───────────────────────────────────────────────────────
     private void Start()
     {
-        if (player == null)
-            player = FindAnyObjectByType<PlayerController>();
-
         StartCoroutine(SpawnLoop());
     }
 
@@ -85,15 +86,36 @@ public class CustomerManager : MonoBehaviour
 
     // ── Callbacks desde Customer ─────────────────────────────────────
 
-    /// <summary>El cliente ha dejado el objeto. Avisar al jugador.</summary>
+    /// <summary>
+    /// El cliente ha dejado el objeto en la mesa.
+    /// Busca la primera WorkStation libre y le manda el trabajo.
+    /// </summary>
     public void OnItemPlacedOnDesk(ItemDefinition itemDef, GameObject itemGO)
     {
-        player?.OnItemAvailable(itemGO);
+        WorkStation freeStation = GetFreeWorkStation();
+
+        if (freeStation == null)
+        {
+            Debug.LogWarning("[CustomerManager] No hay WorkStations libres.");
+            return;
+        }
+
+        freeStation.RequestWork(itemGO, itemDef);
+    }
+
+    /// <summary>
+    /// La WorkStation ha terminado el trabajo.
+    /// El primer cliente de la cola puede recoger su objeto y marcharse.
+    /// </summary>
+    public void ServeNextCustomer(WorkStation workStation)
+    {
+        if (_queue.Count == 0) return;
+        _queue[0].BeServed();
     }
 
     /// <summary>
     /// El cliente ha recogido su objeto y va a salir.
-    /// Avanzar la cola AHORA, sin esperar a que cruce el borde.
+    /// Avanza la cola.
     /// </summary>
     public void OnCustomerLeaving(Customer customer)
     {
@@ -109,11 +131,34 @@ public class CustomerManager : MonoBehaviour
         Destroy(customer.gameObject);
     }
 
-    /// <summary>Llamar cuando el objeto reparado está de vuelta en la mesa.</summary>
-    public void ServeFirstCustomer()
+    // ── WorkStations ─────────────────────────────────────────────────
+
+    /// <summary>Devuelve la primera WorkStation libre, o null si todas están ocupadas.</summary>
+    private WorkStation GetFreeWorkStation()
     {
-        if (_queue.Count == 0) return;
-        _queue[0].BeServed();
+        foreach (WorkStation ws in workStations)
+        {
+            if (!ws.IsBusy) return ws;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Registra una nueva WorkStation en tiempo de ejecución.
+    /// Útil cuando se desbloquea una estación nueva al subir de nivel.
+    /// </summary>
+    public void RegisterWorkStation(WorkStation workStation)
+    {
+        if (!workStations.Contains(workStation))
+            workStations.Add(workStation);
+    }
+
+    /// <summary>
+    /// Elimina una WorkStation del sistema.
+    /// </summary>
+    public void UnregisterWorkStation(WorkStation workStation)
+    {
+        workStations.Remove(workStation);
     }
 
     // ── Gizmos ───────────────────────────────────────────────────────
