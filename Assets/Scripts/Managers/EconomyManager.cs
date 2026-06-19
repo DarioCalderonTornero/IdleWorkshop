@@ -46,6 +46,20 @@ public class EconomyManager : MonoBehaviour
         _currentCoins = startingCoins;
     }
 
+    private void Update()
+    {
+         /////TEST/////
+         if (UnityEngine.InputSystem.Keyboard.current.qKey.wasPressedThisFrame)
+        {
+            Time.timeScale = 2.0f;
+        }
+
+         if (UnityEngine.InputSystem.Keyboard.current.oKey.wasPressedThisFrame)
+        {
+            Time.timeScale = 1.0f;
+        }
+    }
+
     // ── API pública ─────────────────────────────────────────────────
 
     /// <summary>

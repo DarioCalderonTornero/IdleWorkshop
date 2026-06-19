@@ -7,13 +7,15 @@ using UnityEngine;
 /// Toda comunicación hacia fuera pasa por WorkStation.
 /// 
 /// LOOP:
-///  1. Ir a mesa de recepción → coger objeto.
-///  2. Ir a mesa de trabajo → dejar objeto.
-///  3. Procesar (barra de progreso).
-///  4. Recoger objeto procesado.
-///  5. Volver a mesa de recepción → dejar objeto para el cliente.
-///  6. Avisar a WorkStation → trabajo completado.
-///  7. Volver a posición idle.
+///  1. Ir a mesa de recepción → animar recogida → objeto parented al worker.
+///  2. Ir a mesa de trabajo LLEVANDO el objeto.
+///  3. Dejar objeto en mesa de trabajo al llegar.
+///  4. Procesar (barra de progreso).
+///  5. Animar recogida → objeto parented al worker.
+///  6. Volver a mesa de recepción LLEVANDO el objeto.
+///  7. Dejar objeto para el cliente.
+///  8. Avisar a WorkStation → trabajo completado.
+///  9. Volver a posición idle.
 /// </summary>
 public class Worker : MonoBehaviour
 {
@@ -51,7 +53,6 @@ public class Worker : MonoBehaviour
     }
 
     // ── Init ────────────────────────────────────────────────────────
-
     /// <summary>WorkStation llama a este método en su Awake para enlazarse.</summary>
     public void Init(WorkStation workStation)
     {
@@ -62,7 +63,6 @@ public class Worker : MonoBehaviour
     }
 
     // ── API pública ─────────────────────────────────────────────────
-
     /// <summary>WorkStation llama a este método para arrancar el loop de trabajo.</summary>
     public void StartWork(GameObject itemGO, ItemDefinition itemDef)
     {
@@ -89,49 +89,76 @@ public class Worker : MonoBehaviour
     // ── Loop principal ──────────────────────────────────────────────
     private IEnumerator WorkLoop(GameObject itemGO, ItemDefinition itemDef)
     {
-        // 1. Ir a mesa de recepción y coger objeto
+        // 1. Ir a mesa de recepción
         yield return MoveTo(_workStation.ReceptionDesk.PlayerSlotPos);
-        PickUp(itemGO);
 
-        // 2. Ir a mesa de trabajo y dejar objeto
+        // 2. Parentear objeto al headAnchor del worker
+        itemGO.transform.SetParent(headAnchor != null ? headAnchor : transform);
+        itemGO.transform.localPosition = Vector3.zero;
+
+        // 3. Ir a WorkDesk LLEVANDO el objeto en la cabeza
         yield return MoveTo(_workStation.WorkDesk.PlayerSlotPos);
+
+        // 4. Desparentear al llegar
         PutDown(itemGO, _workStation.WorkDesk.ItemSlotPos);
 
-        // 3. Procesar
+        // 5. Procesar
         yield return ProcessRoutine(itemDef);
 
-        // 4. Recoger objeto procesado
-        PickUp(itemGO);
+        // 6. Animar recogida: objeto va de la mesa de trabajo al headAnchor y queda parented
+        yield return PickUpAnim(itemGO);
 
-        // 5. Volver a mesa de recepción y dejar objeto para el cliente
+        // 7. Volver a recepción LLEVANDO el objeto (parented al headAnchor)
         yield return MoveTo(_workStation.ReceptionDesk.PlayerSlotPos);
+
+        // 8. Desparentear y dejar el objeto para el cliente
         PutDown(itemGO, _workStation.ReceptionItemPoint.position);
 
-        // 6. Avisar a WorkStation que el trabajo está completo
+        // 9. Avisar a WorkStation que el trabajo está completo
         _workStation.OnWorkCompleted();
 
-        // 7. Volver a idle
+        // 10. Volver a idle
         yield return MoveTo(idlePosition.position);
     }
 
     // ── Acciones ────────────────────────────────────────────────────
-    private void PickUp(GameObject itemGO)
-    {
-        itemGO.transform.SetParent(headAnchor != null ? headAnchor : transform);
-        itemGO.transform.localPosition = Vector3.zero;
-    }
-
     private void PutDown(GameObject itemGO, Vector3 worldPos)
     {
         itemGO.transform.SetParent(null);
         itemGO.transform.position = worldPos;
     }
 
+    // ── Animación de recogida ────────────────────────────────────────
+    private IEnumerator PickUpAnim(GameObject itemGO)
+    {
+        Vector3 startPos = itemGO.transform.position;
+        Transform anchor = headAnchor != null ? headAnchor : transform;
+
+        // Capturamos la posición del anchor AHORA, cuando el worker está parado
+        Vector3 targetPos = anchor.position;
+
+        float elapsed = 0f;
+        float animTime = 0.35f;
+
+        while (elapsed < animTime)
+        {
+            elapsed += Time.deltaTime;
+            itemGO.transform.position = Vector3.Lerp(
+                startPos,
+                targetPos,
+                Mathf.SmoothStep(0f, 1f, elapsed / animTime));
+            yield return null;
+        }
+
+        // Al terminar la animación, parentear al anchor
+        // A partir de aquí el objeto se mueve con el worker automáticamente
+        itemGO.transform.SetParent(anchor);
+        itemGO.transform.localPosition = Vector3.zero;
+    }
+
     // ── Procesado ───────────────────────────────────────────────────
     private IEnumerator ProcessRoutine(ItemDefinition itemDef)
     {
-        // El tiempo de proceso puede venir del itemDef o del worker, 
-        // usamos el menor para respetar tanto el item como las mejoras del worker.
         float processTime = Mathf.Min(_currentProcessTime, itemDef.baseRepairTime);
 
         float elapsed = 0f;
