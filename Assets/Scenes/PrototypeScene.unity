@@ -656,7 +656,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &698623821
 Transform:
   m_ObjectHideFlags: 0
@@ -1019,7 +1019,7 @@ MonoBehaviour:
   receptionDesk: {fileID: 306649584}
   workDesk: {fileID: 1460205529}
   worker: {fileID: 546468989}
-  receptionItemPoint: {fileID: 698623821}
+  receptionItemPoint: {fileID: 1511591953}
 --- !u!4 &1264343673
 Transform:
   m_ObjectHideFlags: 0
