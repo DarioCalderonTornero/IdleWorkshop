@@ -9,6 +9,8 @@ using UnityEngine;
 /// </summary>
 public class CustomerManager : MonoBehaviour
 {
+    public static CustomerManager Instance { get; private set; }
+
     [Header("Camino compartido")]
     [Tooltip("Transforms en orden: el último es el pie de la columna de espera")]
     [SerializeField] private Transform[] pathWaypoints;
@@ -35,6 +37,18 @@ public class CustomerManager : MonoBehaviour
 
     // ── Estado ──────────────────────────────────────────────────────
     private readonly List<Customer> _queue = new();
+
+    private void Awake()
+    {
+        if (Instance != null)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        Instance = this;
+        DontDestroyOnLoad(gameObject);
+    }
 
     // ── Unity ───────────────────────────────────────────────────────
     private void Start()

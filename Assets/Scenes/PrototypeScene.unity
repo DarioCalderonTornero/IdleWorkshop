@@ -144,8 +144,8 @@ Transform:
   m_GameObject: {fileID: 247358114}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.41472, z: 0}
-  m_LocalScale: {x: 0.65529, y: 0.65529, z: 0.65529}
+  m_LocalPosition: {x: 0.965, y: -0.19, z: 0}
+  m_LocalScale: {x: 0, y: 0, z: 0}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -175,7 +175,7 @@ Transform:
   m_GameObject: {fileID: 263456071}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 2.41314, y: -3.6819701, z: 0}
+  m_LocalPosition: {x: 3.3699996, y: -4.35, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -421,7 +421,7 @@ Transform:
   m_GameObject: {fileID: 506487319}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 14.393141, y: -3.6819701, z: 0}
+  m_LocalPosition: {x: 12.33, y: -4.42, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -651,7 +651,7 @@ GameObject:
   m_Component:
   - component: {fileID: 698623821}
   m_Layer: 0
-  m_Name: Point
+  m_Name: CustomerPoint
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -937,7 +937,7 @@ Transform:
   m_GameObject: {fileID: 818341569}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 11.133141, y: -3.6819701, z: 0}
+  m_LocalPosition: {x: 12.09, y: -4.35, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -997,6 +997,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1264343673}
   - component: {fileID: 1264343672}
+  - component: {fileID: 1264343674}
   m_Layer: 0
   m_Name: WorkStation
   m_TagString: Untagged
@@ -1019,7 +1020,7 @@ MonoBehaviour:
   receptionDesk: {fileID: 306649584}
   workDesk: {fileID: 1460205529}
   worker: {fileID: 546468989}
-  receptionItemPoint: {fileID: 1511591953}
+  receptionItemPoint: {fileID: 698623821}
 --- !u!4 &1264343673
 Transform:
   m_ObjectHideFlags: 0
@@ -1029,7 +1030,7 @@ Transform:
   m_GameObject: {fileID: 1264343671}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.95211, y: 0.59558, z: 0}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -1038,6 +1039,21 @@ Transform:
   - {fileID: 546468988}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1264343674
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1264343671}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a677072235d09984ba8f18cd0b189e08, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WorkStationUnlocker
+  workStationsData:
+  - {fileID: 0}
+  workStationSpawnPoints: []
 --- !u!1 &1314037093
 GameObject:
   m_ObjectHideFlags: 0
@@ -1154,7 +1170,7 @@ Transform:
   m_GameObject: {fileID: 1412681661}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 7.2231402, y: -3.6819701, z: 0}
+  m_LocalPosition: {x: 8.18, y: -4.35, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1602,7 +1618,7 @@ Transform:
   m_GameObject: {fileID: 1999341650}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 100, y: 0.096, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1660,6 +1676,6 @@ SceneRoots:
   - {fileID: 758850571}
   - {fileID: 753062473}
   - {fileID: 247358115}
-  - {fileID: 1999341653}
   - {fileID: 1900523565}
   - {fileID: 1264343673}
+  - {fileID: 1999341653}
