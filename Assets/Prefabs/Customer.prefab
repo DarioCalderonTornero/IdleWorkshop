@@ -136,9 +136,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a40836bede8ea2d4baf4dcafa571d501, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Customer
-  moveSpeed: 1.5
+  moveSpeed: 2
   headAnchor: {fileID: 5649023259634129727}
   dropDuration: 0.35
-  pickupDuration: 0.35
-  queueAdvanceDelay: 1
+  pickupDuration: 0.2
+  queueAdvanceDelay: 0.5
   exitX: 12

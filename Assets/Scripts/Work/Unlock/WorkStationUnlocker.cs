@@ -31,21 +31,21 @@ public class WorkStationUnlocker : MonoBehaviour
 
     public void UnlockNextWorkStation()
     {
-        if (HasNext && EconomyManager.Instance.CanAfford(NextCost))
+        if (!HasNext || !EconomyManager.Instance.CanAfford(NextCost)) return;
+
+        GameObject go = Instantiate(workStationsData[nextIndex].prefab, workStationSpawnPoints[nextIndex].position, Quaternion.identity);
+        WorkStation workStation = go.GetComponent<WorkStation>();
+
+        if (workStation == null)
         {
-            EconomyManager.Instance.SpendCoins(NextCost);
-            GameObject go = Instantiate(workStationsData[nextIndex].prefab, workStationSpawnPoints[nextIndex].position, Quaternion.identity);
-            WorkStation workStation = go.GetComponent<WorkStation>();
-
-            if(workStation == null)
-            {
-                Debug.LogError("[WorkStationUnlocker] El prefab no tiene componente WorkStation.");
-                return;
-            }
-
-            CustomerManager.Instance.RegisterWorkStation(workStation);
-            nextIndex++;
-            OnWorkStationUnlocked?.Invoke();
+            Debug.LogError("[WorkStationUnlocker] El prefab no tiene componente WorkStation.");
+            Destroy(go);
+            return;
         }
+
+        EconomyManager.Instance.SpendCoins(NextCost);
+        CustomerManager.Instance.RegisterWorkStation(workStation);
+        nextIndex++;
+        OnWorkStationUnlocked?.Invoke();
     }
 }

@@ -15,21 +15,16 @@ public class EconomyManager : MonoBehaviour
 {
     public static EconomyManager Instance { get; private set; }
 
-    // ── Eventos ─────────────────────────────────────────────────────
-    /// <summary>
-    /// Se dispara cada vez que el saldo cambia.
-    /// La UI y cualquier otro sistema se suscriben aquí.
-    /// </summary>
     public event Action<double> OnCoinsChanged;
 
     // ── Estado ──────────────────────────────────────────────────────
     [Header("Configuración inicial")]
     [SerializeField] private double startingCoins = 0;
 
-    private double _currentCoins;
+    private double currentCoins;
 
     // ── Propiedades públicas ────────────────────────────────────────
-    public double CurrentCoins => _currentCoins;
+    public double CurrentCoins => currentCoins;
 
     // ── Unity ───────────────────────────────────────────────────────
     private void Awake()
@@ -43,7 +38,7 @@ public class EconomyManager : MonoBehaviour
         Instance = this;
         DontDestroyOnLoad(gameObject);
 
-        _currentCoins = startingCoins;
+        currentCoins = startingCoins;
     }
 
     private void Update()
@@ -54,7 +49,7 @@ public class EconomyManager : MonoBehaviour
             Time.timeScale = 2.0f;
         }
 
-         if (UnityEngine.InputSystem.Keyboard.current.oKey.wasPressedThisFrame)
+         if (UnityEngine.InputSystem.Keyboard.current.wKey.wasPressedThisFrame)
         {
             Time.timeScale = 1.0f;
         }
@@ -69,10 +64,10 @@ public class EconomyManager : MonoBehaviour
     {
         if (amount <= 0) return;
 
-        _currentCoins += amount;
-        OnCoinsChanged?.Invoke(_currentCoins);
+        currentCoins += amount;
+        OnCoinsChanged?.Invoke(currentCoins);
 
-        Debug.Log($"[EconomyManager] +{amount} monedas. Total: {_currentCoins}");
+        Debug.Log($"[EconomyManager] +{amount} monedas. Total: {currentCoins}");
     }
 
     /// <summary>
@@ -83,14 +78,14 @@ public class EconomyManager : MonoBehaviour
     {
         if (!CanAfford(amount))
         {
-            Debug.LogWarning($"[EconomyManager] Saldo insuficiente. Necesario: {amount}, Disponible: {_currentCoins}");
+            Debug.LogWarning($"[EconomyManager] Saldo insuficiente. Necesario: {amount}, Disponible: {currentCoins}");
             return false;
         }
 
-        _currentCoins -= amount;
-        OnCoinsChanged?.Invoke(_currentCoins);
+        currentCoins -= amount;
+        OnCoinsChanged?.Invoke(currentCoins);
 
-        Debug.Log($"[EconomyManager] -{amount} monedas. Total: {_currentCoins}");
+        Debug.Log($"[EconomyManager] -{amount} monedas. Total: {currentCoins}");
         return true;
     }
 
@@ -100,6 +95,12 @@ public class EconomyManager : MonoBehaviour
     /// </summary>
     public bool CanAfford(double amount)
     {
-        return _currentCoins >= amount;
+        return currentCoins >= amount;
+    }
+
+    //---GETTERS---
+    public double GetCurrentCoins()
+    {
+        return currentCoins;
     }
 }
