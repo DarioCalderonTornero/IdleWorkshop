@@ -27,10 +27,6 @@ public class Worker : MonoBehaviour
     [Tooltip("Transform hijo encima de la cabeza del worker")]
     [SerializeField] private Transform headAnchor;
 
-    [Header("Procesado")]
-    [Tooltip("Tiempo base en segundos para procesar un objeto (se modificará con mejoras)")]
-    [SerializeField] private float baseProcessTime = 4f;
-
     [Header("Movimiento")]
     [Tooltip("Velocidad base de movimiento (se modificará con mejoras)")]
     [SerializeField] private float baseMoveSpeed = 4f;
@@ -42,13 +38,11 @@ public class Worker : MonoBehaviour
     private WorkStation _workStation;
 
     // ── Estado ──────────────────────────────────────────────────────
-    private float _currentProcessTime;
     private float _currentMoveSpeed;
 
     // ── Unity ───────────────────────────────────────────────────────
     private void Awake()
     {
-        _currentProcessTime = baseProcessTime;
         _currentMoveSpeed = baseMoveSpeed;
     }
 
@@ -73,10 +67,6 @@ public class Worker : MonoBehaviour
     /// Modifica la velocidad de procesado (llamado desde sistema de mejoras).
     /// Ejemplo: ApplyProcessTimeMultiplier(0.8f) → 20% más rápido.
     /// </summary>
-    public void ApplyProcessTimeMultiplier(float multiplier)
-    {
-        _currentProcessTime = baseProcessTime * multiplier;
-    }
 
     /// <summary>
     /// Modifica la velocidad de movimiento (llamado desde sistema de mejoras).
@@ -159,7 +149,10 @@ public class Worker : MonoBehaviour
     // ── Procesado ───────────────────────────────────────────────────
     private IEnumerator ProcessRoutine(ItemDefinition itemDef)
     {
-        float processTime = Mathf.Min(_currentProcessTime, itemDef.baseRepairTime);
+        // El tiempo lo decide la WorkDesk, no el worker
+        float processTime = Mathf.Min(
+            _workStation.WorkDesk.CurrentProcessTime,
+            itemDef.baseRepairTime);
 
         float elapsed = 0f;
         progressUI?.Show(0f);

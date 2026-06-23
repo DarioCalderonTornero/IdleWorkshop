@@ -11,7 +11,7 @@ using UnityEngine;
 /// ??? WorkDesk         (WorkTable)
 /// ??? Worker           (Worker)
 /// </summary>
-public class WorkStation : MonoBehaviour
+public class WorkStation : MonoBehaviour, IUpgradeable
 {
     [Header("Mesas")]
     [Tooltip("Mesa donde el cliente deja el objeto")]
@@ -37,6 +37,33 @@ public class WorkStation : MonoBehaviour
     public WorkTable ReceptionDesk => receptionDesk;
     public WorkTable WorkDesk => workDesk;
     public Transform ReceptionItemPoint => receptionItemPoint;
+
+    [Header("Mejoras")]
+    [SerializeField] private UpgradeData upgradeData;
+
+    // Añadir la variable de nivel
+    private int currentLevel = 0;
+
+    // Implementar la interfaz
+    public UpgradeData UpgradeData => upgradeData;
+    public int CurrentLevel => currentLevel;
+
+    public bool CanUpgrade()
+    {
+        if (upgradeData == null) return false;
+        if (currentLevel >= upgradeData.maxLevel) return false;
+        return EconomyManager.Instance.CanAfford(
+            upgradeData.GetCostForLevel(currentLevel));
+    }
+
+    public void Upgrade()
+    {
+        if (!CanUpgrade()) return;
+        EconomyManager.Instance.SpendCoins(
+            upgradeData.GetCostForLevel(currentLevel));
+        currentLevel++;
+        Debug.Log($"[WorkStation] Mejorado a nivel {currentLevel}");
+    }
 
     // ?? Unity ???????????????????????????????????????????????????????
     private void Awake()

@@ -1,9 +1,5 @@
 using UnityEngine;
 
-/// <summary>
-/// Datos de una mesa de trabajo dentro del taller.
-/// Ponlo en el GameObject de la mesa.
-/// </summary>
 public class WorkTable : MonoBehaviour
 {
     [Tooltip("Punto donde el jugador se para mientras trabaja (delante de la mesa)")]
@@ -12,8 +8,25 @@ public class WorkTable : MonoBehaviour
     [Tooltip("Punto encima de la mesa donde se deposita el objeto")]
     [SerializeField] private Transform itemSlot;
 
+    [Header("Procesado")]
+    [Tooltip("Tiempo base en segundos para procesar un objeto")]
+    [SerializeField] private float baseProcessTime = 4f;
+
+    private float _currentProcessTime;
+
+    void Awake()
+    {
+        _currentProcessTime = baseProcessTime;
+    }
+
     public Vector3 PlayerSlotPos => playerSlot.position;
     public Vector3 ItemSlotPos => itemSlot.position;
+    public float CurrentProcessTime => _currentProcessTime;
+
+    public void ApplyProcessTimeMultiplier(float multiplier)
+    {
+        _currentProcessTime = Mathf.Max(0.1f, baseProcessTime * multiplier);
+    }
 
 #if UNITY_EDITOR
     private void OnDrawGizmos()
