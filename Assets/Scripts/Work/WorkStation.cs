@@ -1,107 +1,87 @@
+﻿using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>
-/// Unidad completa de trabajo: agrupa mesa de recepci�n, mesa de trabajo y worker.
-/// Es la pieza central del loop de producci�n.
-/// Cuando el trabajo termina avisa al EconomyManager y al CustomerManager.
-/// 
-/// JERARQU�A RECOMENDADA EN UNITY:
-/// WorkStation
-/// ??? ReceptionDesk    (WorkTable)
-/// ??? WorkDesk         (WorkTable)
-/// ??? Worker           (Worker)
-/// </summary>
-public class WorkStation : MonoBehaviour, IUpgradeable
+public class WorkStation : MonoBehaviour
 {
-    [Header("Mesas")]
-    [Tooltip("Mesa donde el cliente deja el objeto")]
+    [Header("Mesa de recepción")]
     [SerializeField] private WorkTable receptionDesk;
 
-    [Tooltip("Mesa donde el worker procesa el objeto")]
-    [SerializeField] private WorkTable workDesk;
+    [Header("Mesas de trabajo en orden (1 a 5)")]
+    [SerializeField] private List<WorkDeskUnlockable> workDesks;
 
     [Header("Worker")]
     [SerializeField] private Worker worker;
 
     [Header("Punto de entrega al cliente")]
-    [Tooltip("Punto encima de la mesa de recepci�n donde queda el objeto para que el cliente lo recoja")]
     [SerializeField] private Transform receptionItemPoint;
 
-    // ?? Estado ??????????????????????????????????????????????????????
+
+    // ── Estado ───────────────────────────────────────────────────────
     private bool _isBusy;
     private ItemDefinition _currentItemDef;
     private CustomerManager _customerManager;
+    private readonly List<WorkTable> _unlockedDesks = new();
 
-    // ?? Propiedades p�blicas ????????????????????????????????????????
+    // ── Propiedades públicas ─────────────────────────────────────────
     public bool IsBusy => _isBusy;
     public WorkTable ReceptionDesk => receptionDesk;
-    public WorkTable WorkDesk => workDesk;
     public Transform ReceptionItemPoint => receptionItemPoint;
 
-    [Header("Mejoras")]
-    [SerializeField] private UpgradeData upgradeData;
-
-    // A�adir la variable de nivel
-    private int currentLevel = 0;
-
-    // Implementar la interfaz
-    public UpgradeData UpgradeData => upgradeData;
-    public int CurrentLevel => currentLevel;
-
-    public bool CanUpgrade()
-    {
-        if (upgradeData == null) return false;
-        if (currentLevel >= upgradeData.maxLevel) return false;
-        return EconomyManager.Instance.CanAfford(
-            upgradeData.GetCostForLevel(currentLevel));
-    }
-
-    public void Upgrade()
-    {
-        if (!CanUpgrade()) return;
-        EconomyManager.Instance.SpendCoins(
-            upgradeData.GetCostForLevel(currentLevel));
-        currentLevel++;
-        Debug.Log($"[WorkStation] Mejorado a nivel {currentLevel}");
-    }
-
-    // ?? Unity ???????????????????????????????????????????????????????
+    // ── Unity ────────────────────────────────────────────────────────
     private void Awake()
     {
         _customerManager = FindAnyObjectByType<CustomerManager>();
 
         if (worker != null)
             worker.Init(this);
+
+        // Registra las mesas ya desbloqueadas por defecto
+        // y suscribe el evento de las bloqueadas
+        foreach (var desk in workDesks)
+        {
+            if (desk.IsUnlocked)
+                RegisterDesk(desk);
+            else
+                desk.OnUnlocked += RegisterDesk;
+        }
     }
 
-    // ?? API p�blica ?????????????????????????????????????????????????
+    // ── Registro de mesas ────────────────────────────────────────────
+    private void RegisterDesk(WorkDeskUnlockable unlockable)
+    {
+        WorkTable table = unlockable.GetComponent<WorkTable>();
+        if (table != null && !_unlockedDesks.Contains(table))
+        {
+            _unlockedDesks.Add(table);
+            Debug.Log($"[WorkStation] Mesa registrada. Total activas: {_unlockedDesks.Count}");
+        }
+    }
 
-    /// <summary>
-    /// El CustomerManager llama a este m�todo cuando hay un objeto disponible.
-    /// Si la estaci�n est� libre, arranca el proceso del worker.
-    /// </summary>
+    public List<WorkTable> GetUnlockedDesks() => _unlockedDesks;
+
+    // Devuelve la siguiente mesa bloqueada (para el botón de desbloqueo)
+    public WorkDeskUnlockable GetNextLockedDesk()
+    {
+        foreach (var desk in workDesks)
+            if (!desk.IsUnlocked) return desk;
+        return null;
+    }
+
+    // ── API pública ──────────────────────────────────────────────────
     public void RequestWork(GameObject itemGO, ItemDefinition itemDef)
     {
         if (_isBusy) return;
-
         _isBusy = true;
         _currentItemDef = itemDef;
         worker.StartWork(itemGO, itemDef);
     }
 
-    /// <summary>
-    /// El Worker llama a este m�todo cuando ha terminado el proceso completo.
-    /// A�ade las monedas a la econom�a y avisa al CustomerManager.
-    /// </summary>
     public void OnWorkCompleted()
     {
-        // Pagar al jugador
         if (_currentItemDef != null)
             EconomyManager.Instance?.AddCoins(_currentItemDef.rewardCoins);
 
-        // Avisar al CustomerManager para que el cliente recoja el objeto
         _customerManager?.ServeNextCustomer(this);
-
         _isBusy = false;
         _currentItemDef = null;
     }

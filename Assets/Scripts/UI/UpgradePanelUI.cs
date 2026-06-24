@@ -1,8 +1,9 @@
-﻿using UnityEngine;
-using UnityEngine.UI;
-using UnityEngine.InputSystem;
+﻿using System.Collections;
 using TMPro;
-using System.Collections;
+using Unity.VisualScripting.Antlr3.Runtime;
+using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.UI;
 
 public class UpgradePanelUI : MonoBehaviour
 {
@@ -30,6 +31,13 @@ public class UpgradePanelUI : MonoBehaviour
 
     private Coroutine animCoroutine;
 
+    [Header("Modo desbloqueo")]
+    [SerializeField] private GameObject upgradeContent;   // todo el contenido normal
+    [SerializeField] private Button unlockButton;          // botón grande de desbloquear
+    [SerializeField] private TextMeshProUGUI unlockCostText;
+
+    private WorkDeskUnlockable currentUnlockable;
+
     void Awake()
     {
         if (Instance != null) { Destroy(gameObject); return; }
@@ -54,12 +62,45 @@ public class UpgradePanelUI : MonoBehaviour
 
     // ── API pública ──────────────────────────────────────────────────
 
+    public void ShowUnlock(WorkDeskUnlockable unlockable)
+    {
+        if (state == PanelState.Visible && currentUnlockable == unlockable) return;
+
+        currentUnlockable = unlockable;
+        currentTarget = null;
+
+        // Muestra solo el botón de desbloquear
+        upgradeContent.SetActive(false);
+        unlockButton.gameObject.SetActive(true);
+
+        double cost = unlockable.UnlockCost;
+        unlockCostText.text = $"Desbloquear\n{cost} monedas";
+        unlockButton.interactable = EconomyManager.Instance.CanAfford(cost);
+
+        unlockButton.onClick.RemoveAllListeners();
+        unlockButton.onClick.AddListener(() =>
+        {
+            if (!EconomyManager.Instance.SpendCoins(unlockable.UnlockCost)) return;
+            unlockable.Unlock();
+            Hide();
+        });
+
+        if (animCoroutine != null) StopCoroutine(animCoroutine);
+        state = PanelState.Showing;
+        animCoroutine = StartCoroutine(AnimateTo(shownY, () => state = PanelState.Visible));
+    }
+
     public void Show(IUpgradeable target)
     {
-        // Si ya está visible con el mismo target, no hace nada
         if (state == PanelState.Visible && currentTarget == target) return;
 
         currentTarget = target;
+        currentUnlockable = null;
+
+        // Muestra contenido normal, oculta botón de desbloquear
+        upgradeContent.SetActive(true);
+        unlockButton.gameObject.SetActive(false);
+
         RefreshUI();
 
         if (animCoroutine != null) StopCoroutine(animCoroutine);
@@ -173,6 +214,16 @@ public class UpgradePanelUI : MonoBehaviour
     void OnCoinsChanged(double newAmount)
     {
         if (state != PanelState.Visible && state != PanelState.Showing) return;
-        RefreshUI();
+
+        if (currentTarget != null)
+        {
+            // Panel de mejora normal
+            RefreshUI();
+        }
+        else if (currentUnlockable != null)
+        {
+            // Panel de desbloqueo
+            unlockButton.interactable = EconomyManager.Instance.CanAfford(currentUnlockable.UnlockCost);
+        }
     }
 }

@@ -1,160 +1,91 @@
 ﻿using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>
-/// Worker genérico que ejecuta el loop de trabajo dentro de su WorkStation.
-/// No tiene referencias directas al CustomerManager ni a otros sistemas.
-/// Toda comunicación hacia fuera pasa por WorkStation.
-/// 
-/// LOOP:
-///  1. Ir a mesa de recepción → animar recogida → objeto parented al worker.
-///  2. Ir a mesa de trabajo LLEVANDO el objeto.
-///  3. Dejar objeto en mesa de trabajo al llegar.
-///  4. Procesar (barra de progreso).
-///  5. Animar recogida → objeto parented al worker.
-///  6. Volver a mesa de recepción LLEVANDO el objeto.
-///  7. Dejar objeto para el cliente.
-///  8. Avisar a WorkStation → trabajo completado.
-///  9. Volver a posición idle.
-/// </summary>
 public class Worker : MonoBehaviour
 {
     [Header("Posición idle")]
-    [Tooltip("Posición de espera cuando no hay trabajo")]
     [SerializeField] private Transform idlePosition;
 
     [Header("Objeto en cabeza")]
-    [Tooltip("Transform hijo encima de la cabeza del worker")]
     [SerializeField] private Transform headAnchor;
 
     [Header("Movimiento")]
-    [Tooltip("Velocidad base de movimiento (se modificará con mejoras)")]
     [SerializeField] private float baseMoveSpeed = 4f;
 
     [Header("UI")]
     [SerializeField] private RepairProgressUI progressUI;
 
-    // ── Referencias ─────────────────────────────────────────────────
     private WorkStation _workStation;
-
-    // ── Estado ──────────────────────────────────────────────────────
     private float _currentMoveSpeed;
 
-    // ── Unity ───────────────────────────────────────────────────────
     private void Awake()
     {
         _currentMoveSpeed = baseMoveSpeed;
     }
 
-    // ── Init ────────────────────────────────────────────────────────
-    /// <summary>WorkStation llama a este método en su Awake para enlazarse.</summary>
     public void Init(WorkStation workStation)
     {
         _workStation = workStation;
-
         if (idlePosition != null)
             transform.position = idlePosition.position;
     }
 
-    // ── API pública ─────────────────────────────────────────────────
-    /// <summary>WorkStation llama a este método para arrancar el loop de trabajo.</summary>
     public void StartWork(GameObject itemGO, ItemDefinition itemDef)
     {
         StartCoroutine(WorkLoop(itemGO, itemDef));
     }
 
-    /// <summary>
-    /// Modifica la velocidad de procesado (llamado desde sistema de mejoras).
-    /// Ejemplo: ApplyProcessTimeMultiplier(0.8f) → 20% más rápido.
-    /// </summary>
-
-    /// <summary>
-    /// Modifica la velocidad de movimiento (llamado desde sistema de mejoras).
-    /// </summary>
     public void ApplyMoveSpeedMultiplier(float multiplier)
     {
         _currentMoveSpeed = baseMoveSpeed * multiplier;
     }
 
-    // ── Loop principal ──────────────────────────────────────────────
     private IEnumerator WorkLoop(GameObject itemGO, ItemDefinition itemDef)
     {
-        // 1. Ir a mesa de recepción
+        // 1. Ir a recepción
         yield return MoveTo(_workStation.ReceptionDesk.PlayerSlotPos);
 
-        // 2. Parentear objeto al headAnchor del worker
-        itemGO.transform.SetParent(headAnchor != null ? headAnchor : transform);
+        // 2. Coger objeto
+        Transform anchor = headAnchor != null ? headAnchor : transform;
+        itemGO.transform.SetParent(anchor);
         itemGO.transform.localPosition = Vector3.zero;
 
-        // 3. Ir a WorkDesk LLEVANDO el objeto en la cabeza
-        yield return MoveTo(_workStation.WorkDesk.PlayerSlotPos);
+        // 3. Pasar por cada mesa desbloqueada en orden
+        List<WorkTable> desks = _workStation.GetUnlockedDesks();
 
-        // 4. Desparentear al llegar
-        PutDown(itemGO, _workStation.WorkDesk.ItemSlotPos);
+        if (desks.Count == 0)
+        {
+            Debug.LogError("[Worker] No hay mesas desbloqueadas.");
+            yield break;
+        }
 
-        // 5. Procesar
-        yield return ProcessRoutine(itemDef);
+        foreach (WorkTable desk in desks)
+        {
+            yield return MoveTo(desk.PlayerSlotPos);
+            PutDown(itemGO, desk.ItemSlotPos);
+            yield return ProcessRoutine(itemDef, desk);
+            yield return PickUpAnim(itemGO);
+        }
 
-        // 6. Animar recogida: objeto va de la mesa de trabajo al headAnchor y queda parented
-        yield return PickUpAnim(itemGO);
-
-        // 7. Volver a recepción LLEVANDO el objeto (parented al headAnchor)
+        // 4. Volver a recepción con el objeto
         yield return MoveTo(_workStation.ReceptionDesk.PlayerSlotPos);
 
-        // 8. Desparentear y dejar el objeto para el cliente
+        // 5. Dejar objeto para el cliente
         PutDown(itemGO, _workStation.ReceptionItemPoint.position);
 
-        // 9. Avisar a WorkStation que el trabajo está completo
+        // 6. Avisar que terminó
         _workStation.OnWorkCompleted();
 
-        // 10. Volver a idle
+        // 7. Volver a idle
         yield return MoveTo(idlePosition.position);
     }
 
-    // ── Acciones ────────────────────────────────────────────────────
-    private void PutDown(GameObject itemGO, Vector3 worldPos)
+    private IEnumerator ProcessRoutine(ItemDefinition itemDef, WorkTable desk)
     {
-        itemGO.transform.SetParent(null);
-        itemGO.transform.position = worldPos;
-    }
-
-    // ── Animación de recogida ────────────────────────────────────────
-    private IEnumerator PickUpAnim(GameObject itemGO)
-    {
-        Vector3 startPos = itemGO.transform.position;
-        Transform anchor = headAnchor != null ? headAnchor : transform;
-
-        // Capturamos la posición del anchor AHORA, cuando el worker está parado
-        Vector3 targetPos = anchor.position;
-
+        float processTime = Mathf.Min(desk.CurrentProcessTime, itemDef.baseRepairTime);
         float elapsed = 0f;
-        float animTime = 0.35f;
 
-        while (elapsed < animTime)
-        {
-            elapsed += Time.deltaTime;
-            itemGO.transform.position = Vector3.Lerp(
-                startPos,
-                targetPos,
-                Mathf.SmoothStep(0f, 1f, elapsed / animTime));
-            yield return null;
-        }
-
-        // Al terminar la animación, parentear al anchor
-        // A partir de aquí el objeto se mueve con el worker automáticamente
-        itemGO.transform.SetParent(anchor);
-        itemGO.transform.localPosition = Vector3.zero;
-    }
-
-    // ── Procesado ───────────────────────────────────────────────────
-    private IEnumerator ProcessRoutine(ItemDefinition itemDef)
-    {
-        // El tiempo lo decide la WorkDesk, no el worker
-        float processTime = Mathf.Min(
-            _workStation.WorkDesk.CurrentProcessTime,
-            itemDef.baseRepairTime);
-
-        float elapsed = 0f;
         progressUI?.Show(0f);
 
         while (elapsed < processTime)
@@ -168,21 +99,46 @@ public class Worker : MonoBehaviour
         progressUI?.Hide();
     }
 
-    // ── Movimiento ──────────────────────────────────────────────────
+    private void PutDown(GameObject itemGO, Vector3 worldPos)
+    {
+        itemGO.transform.SetParent(null);
+        itemGO.transform.position = worldPos;
+    }
+
+    private IEnumerator PickUpAnim(GameObject itemGO)
+    {
+        Vector3 startPos = itemGO.transform.position;
+        Transform anchor = headAnchor != null ? headAnchor : transform;
+        Vector3 targetPos = anchor.position;
+
+        float elapsed = 0f;
+        float animTime = 0.35f;
+
+        while (elapsed < animTime)
+        {
+            elapsed += Time.deltaTime;
+            itemGO.transform.position = Vector3.Lerp(
+                startPos, targetPos,
+                Mathf.SmoothStep(0f, 1f, elapsed / animTime));
+            yield return null;
+        }
+
+        itemGO.transform.SetParent(anchor);
+        itemGO.transform.localPosition = Vector3.zero;
+    }
+
     private IEnumerator MoveTo(Vector3 target)
     {
         while (Vector3.Distance(transform.position, target) > 0.05f)
         {
             transform.position = Vector3.MoveTowards(
-                transform.position,
-                target,
+                transform.position, target,
                 _currentMoveSpeed * Time.deltaTime);
             yield return null;
         }
         transform.position = target;
     }
 
-    // ── Gizmos ──────────────────────────────────────────────────────
 #if UNITY_EDITOR
     private void OnDrawGizmos()
     {
