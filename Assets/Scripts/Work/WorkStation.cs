@@ -78,9 +78,6 @@ public class WorkStation : MonoBehaviour
 
     public void OnWorkCompleted()
     {
-        if (_currentItemDef != null)
-            EconomyManager.Instance?.AddCoins(_currentItemDef.rewardCoins);
-
         _customerManager?.ServeNextCustomer(this);
         _isBusy = false;
         _currentItemDef = null;

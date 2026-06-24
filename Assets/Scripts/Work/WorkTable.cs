@@ -2,30 +2,44 @@ using UnityEngine;
 
 public class WorkTable : MonoBehaviour
 {
-    [Tooltip("Punto donde el jugador se para mientras trabaja (delante de la mesa)")]
+    [Tooltip("Punto donde el jugador se para mientras trabaja")]
     [SerializeField] private Transform playerSlot;
 
     [Tooltip("Punto encima de la mesa donde se deposita el objeto")]
     [SerializeField] private Transform itemSlot;
 
-    [Header("Procesado")]
-    [Tooltip("Tiempo base en segundos para procesar un objeto")]
-    [SerializeField] private float baseProcessTime = 4f;
+    [Header("Multiplicadores base")]
+    [Tooltip("Multiplica el baseRepairTime del objeto. <1 = más rápido")]
+    [SerializeField] private float baseTimeMultiplier = 1f;
 
-    private float _currentProcessTime;
+    [Tooltip("Multiplica el rewardCoins del objeto")]
+    [SerializeField] private float baseRewardMultiplier = 1f;
+
+    private float _currentTimeMultiplier;
+    private float _currentRewardMultiplier;
 
     void Awake()
     {
-        _currentProcessTime = baseProcessTime;
+        _currentTimeMultiplier = baseTimeMultiplier;
+        _currentRewardMultiplier = baseRewardMultiplier;
     }
 
     public Vector3 PlayerSlotPos => playerSlot.position;
     public Vector3 ItemSlotPos => itemSlot.position;
-    public float CurrentProcessTime => _currentProcessTime;
 
-    public void ApplyProcessTimeMultiplier(float multiplier)
+    // Tiempo real de proceso para un objeto concreto
+    public float GetProcessTime(ItemDefinition item)
+        => Mathf.Max(0.1f, item.baseRepairTime * _currentTimeMultiplier);
+
+    // Recompensa real para un objeto concreto
+    public int GetReward(ItemDefinition item)
+        => Mathf.RoundToInt(item.rewardCoins * _currentRewardMultiplier);
+
+    // Llamado desde WorkDeskUpgradeable al mejorar
+    public void ApplyMultipliers(float timeMultiplier, float rewardMultiplier)
     {
-        _currentProcessTime = Mathf.Max(0.1f, baseProcessTime * multiplier);
+        _currentTimeMultiplier = timeMultiplier;
+        _currentRewardMultiplier = rewardMultiplier;
     }
 
 #if UNITY_EDITOR

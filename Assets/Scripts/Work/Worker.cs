@@ -64,7 +64,10 @@ public class Worker : MonoBehaviour
         {
             yield return MoveTo(desk.PlayerSlotPos);
             PutDown(itemGO, desk.ItemSlotPos);
+
+            // Procesa y paga al terminar esta mesa concreta
             yield return ProcessRoutine(itemDef, desk);
+
             yield return PickUpAnim(itemGO);
         }
 
@@ -74,7 +77,7 @@ public class Worker : MonoBehaviour
         // 5. Dejar objeto para el cliente
         PutDown(itemGO, _workStation.ReceptionItemPoint.position);
 
-        // 6. Avisar que terminó
+        // 6. Avisar que terminó (ya no paga aquí)
         _workStation.OnWorkCompleted();
 
         // 7. Volver a idle
@@ -83,7 +86,7 @@ public class Worker : MonoBehaviour
 
     private IEnumerator ProcessRoutine(ItemDefinition itemDef, WorkTable desk)
     {
-        float processTime = Mathf.Min(desk.CurrentProcessTime, itemDef.baseRepairTime);
+        float processTime = desk.GetProcessTime(itemDef);
         float elapsed = 0f;
 
         progressUI?.Show(0f);
@@ -97,6 +100,11 @@ public class Worker : MonoBehaviour
 
         progressUI?.SetFill(1f);
         progressUI?.Hide();
+
+        // Paga al terminar esta mesa concreta
+        int reward = desk.GetReward(itemDef);
+        EconomyManager.Instance?.AddCoins(reward);
+        Debug.Log($"[Worker] Mesa completada — +{reward} monedas");
     }
 
     private void PutDown(GameObject itemGO, Vector3 worldPos)
