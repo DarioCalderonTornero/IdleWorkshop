@@ -13,9 +13,10 @@ MonoBehaviour:
   m_Name: Item1
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
   itemName: Casco
-  description: 
+  description: Un viejo casco
   itemPrefab: {fileID: 504316478351979113, guid: 215427961d89dc840b649bc474a96c8d, type: 3}
   sprite: {fileID: 10911, guid: 0000000000000000f000000000000000, type: 0}
   displayScale: {x: 1, y: 1}
+  rarity: 0
   baseRepairTime: 5
   rewardCoins: 10

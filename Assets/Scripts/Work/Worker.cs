@@ -51,8 +51,9 @@ public class Worker : MonoBehaviour
         itemGO.transform.SetParent(anchor);
         itemGO.transform.localPosition = Vector3.zero;
 
-        // 3. Pasar por cada mesa desbloqueada en orden
-        List<WorkTable> desks = _workStation.GetUnlockedDesks();
+        // 3. Copia la lista en este momento para que añadir mesas nuevas
+        //    durante el loop no rompa la iteración
+        List<WorkTable> desks = new List<WorkTable>(_workStation.GetUnlockedDesks());
 
         if (desks.Count == 0)
         {
@@ -64,10 +65,7 @@ public class Worker : MonoBehaviour
         {
             yield return MoveTo(desk.PlayerSlotPos);
             PutDown(itemGO, desk.ItemSlotPos);
-
-            // Procesa y paga al terminar esta mesa concreta
             yield return ProcessRoutine(itemDef, desk);
-
             yield return PickUpAnim(itemGO);
         }
 
@@ -77,7 +75,7 @@ public class Worker : MonoBehaviour
         // 5. Dejar objeto para el cliente
         PutDown(itemGO, _workStation.ReceptionItemPoint.position);
 
-        // 6. Avisar que terminó (ya no paga aquí)
+        // 6. Avisar que terminó
         _workStation.OnWorkCompleted();
 
         // 7. Volver a idle
@@ -102,6 +100,8 @@ public class Worker : MonoBehaviour
         progressUI?.Hide();
 
         // Paga al terminar esta mesa concreta
+        // Al terminar de procesar en una mesa, registra el objeto
+        BestiaryManager.Instance?.RegisterItem(itemDef);
         int reward = desk.GetReward(itemDef);
         EconomyManager.Instance?.AddCoins(reward);
         Debug.Log($"[Worker] Mesa completada — +{reward} monedas");
