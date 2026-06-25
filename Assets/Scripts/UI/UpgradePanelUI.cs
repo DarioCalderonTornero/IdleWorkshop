@@ -1,6 +1,5 @@
 ﻿using System.Collections;
 using TMPro;
-using Unity.VisualScripting.Antlr3.Runtime;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
@@ -74,7 +73,7 @@ public class UpgradePanelUI : MonoBehaviour
         unlockButton.gameObject.SetActive(true);
 
         double cost = unlockable.UnlockCost;
-        unlockCostText.text = $"Desbloquear\n{cost} monedas";
+        unlockCostText.text = $"Desbloquear\n{CurrencyFormatter.Format(cost)}";
         unlockButton.interactable = EconomyManager.Instance.CanAfford(cost);
 
         unlockButton.onClick.RemoveAllListeners();
@@ -171,8 +170,8 @@ public class UpgradePanelUI : MonoBehaviour
         upgradeButton.interactable = !maxLevel && currentTarget.CanUpgrade();
 
         upgradeCostText.text = maxLevel
-            ? "Nivel máximo"
-            : $"{data.GetCostForLevel(level)} monedas";
+    ? "Nivel máximo"
+    : $"{CurrencyFormatter.Format(data.GetCostForLevel(level))}";
     }
 
     void OnUpgradeClicked()

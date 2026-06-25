@@ -25,4 +25,13 @@ public class WorkerUpgradeable : UpgradeableBase
 
         Debug.Log($"[WorkerUpgradeable] Nivel {newLevel} — velocidad ×{multiplier:F2}");
     }
+
+    private void OnMouseDown()
+    {
+        IUpgradeable upgradeable = GetComponent<IUpgradeable>();
+        if (upgradeable != null )
+        {
+            UpgradePanelUI.Instance.Show(upgradeable);
+        }
+    }
 }

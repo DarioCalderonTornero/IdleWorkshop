@@ -6,12 +6,12 @@ public class EconomyTester : MonoBehaviour
     {
         if (UnityEngine.InputSystem.Keyboard.current.aKey.wasPressedThisFrame)
         {
-            EconomyManager.Instance.AddCoins(100);
+            EconomyManager.Instance.AddCoins(1143);
         }
 
         if (UnityEngine.InputSystem.Keyboard.current.sKey.wasPressedThisFrame)
         {
-            bool success = EconomyManager.Instance.SpendCoins(50);
+            bool success = EconomyManager.Instance.SpendCoins(10534);
             Debug.Log(success ? "Gasto exitoso." : "No hay suficientes monedas.");
         }
 
