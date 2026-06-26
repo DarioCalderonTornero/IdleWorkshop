@@ -46,6 +46,11 @@ public class SaveManager : MonoBehaviour
         if (pause) SaveGame();
     }
 
+    private void OnApplicationQuit()
+    {
+        SaveGame();
+    }
+
     public void SaveGame()
     {
         SaveData data = CollectSaveData();
@@ -104,9 +109,19 @@ public class SaveManager : MonoBehaviour
     private void ApplySaveData(SaveData data)
     {
         // Monedas
-        //EconomyManager.Instance.LoadCoins(data.coins);
+        EconomyManager.Instance.LoadCoins(data.coins);
 
         // Talleres
         //WorkStationRegistry.Instance.LoadAllSaveData(data.workStations);
+    }
+
+    //---HELPERS---
+    public void DeleteSave()
+    {
+        if (File.Exists(SaveFilePath))
+        {
+            File.Delete(SaveFilePath);
+            Debug.Log("Save Deleted");
+        }
     }
 }

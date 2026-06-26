@@ -103,4 +103,10 @@ public class EconomyManager : MonoBehaviour
     {
         return currentCoins;
     }
+
+    public void LoadCoins(double amount)
+    {
+        currentCoins = amount;
+        OnCoinsChanged?.Invoke(currentCoins);
+    }
 }
