@@ -15,6 +15,10 @@ public class WorkStation : MonoBehaviour
     [Header("Punto de entrega al cliente")]
     [SerializeField] private Transform receptionItemPoint;
 
+    [Header("Identificador")]
+    [SerializeField] private int stationId;
+    public int StationId => stationId;
+
 
     // ── Estado ───────────────────────────────────────────────────────
     private bool _isBusy;
@@ -44,6 +48,8 @@ public class WorkStation : MonoBehaviour
             else
                 desk.OnUnlocked += RegisterDesk;
         }
+
+        WorkStationRegistry.Instance.Register(this);    
     }
 
     // ── Registro de mesas ────────────────────────────────────────────
@@ -82,4 +88,52 @@ public class WorkStation : MonoBehaviour
         _isBusy = false;
         _currentItemDef = null;
     }
+
+    
+    public WorkStationSaveData GetSaveData()
+    {
+        WorkStationSaveData workStationSaveData = new WorkStationSaveData();   
+
+        workStationSaveData.stationId = stationId;
+
+        WorkerUpgradeable workerUpgradeable = worker.GetComponent<WorkerUpgradeable>();
+
+        workStationSaveData.workerLevel = workerUpgradeable != null ? workerUpgradeable.CurrentLevel : 0;
+
+        for (int i = 0; i < workDesks.Count; i++)
+        {
+            WorkDeskUpgradeable deskUpgradeable = workDesks[i].GetComponent<WorkDeskUpgradeable>();
+
+            DeskSaveData deskSaveData = new DeskSaveData();
+            deskSaveData.deskIndex = i;
+            deskSaveData.isUnlocked = workDesks[i].IsUnlocked;
+            deskSaveData.level = deskUpgradeable != null ? deskUpgradeable.CurrentLevel : 0;
+
+            workStationSaveData.desks.Add(deskSaveData);
+        }
+
+        return workStationSaveData;
+    }
+
+    public void LoadSaveData(WorkStationSaveData data)
+    {
+        // Restaurar nivel del worker
+        WorkerUpgradeable workerUpgradeable = worker.GetComponent<WorkerUpgradeable>();
+        if (workerUpgradeable != null)
+            workerUpgradeable.LoadLevel(data.workerLevel);
+
+        // Restaurar estado de cada mesa
+        for (int i = 0; i < workDesks.Count && i < data.desks.Count; i++)
+        {
+            DeskSaveData deskData = data.desks[i];
+
+            if (deskData.isUnlocked && !workDesks[i].IsUnlocked)
+                workDesks[i].Unlock();
+
+            WorkDeskUpgradeable deskUpgradeable = workDesks[i].GetComponent<WorkDeskUpgradeable>();
+            if (deskUpgradeable != null)
+                deskUpgradeable.LoadLevel(deskData.level);
+        }
+    }
+
 }

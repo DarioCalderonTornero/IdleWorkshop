@@ -1,23 +1,24 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class EconomyTester : MonoBehaviour
 {
     private void Update()
     {
-        if (UnityEngine.InputSystem.Keyboard.current.aKey.wasPressedThisFrame)
+        if (Keyboard.current.aKey.wasPressedThisFrame)
         {
             EconomyManager.Instance.AddCoins(1143);
         }
 
-        if (UnityEngine.InputSystem.Keyboard.current.sKey.wasPressedThisFrame)
+        if (Keyboard.current.sKey.wasPressedThisFrame)
         {
             bool success = EconomyManager.Instance.SpendCoins(10534);
             Debug.Log(success ? "Gasto exitoso." : "No hay suficientes monedas.");
         }
 
-        if (UnityEngine.InputSystem.Keyboard.current.dKey.wasPressedThisFrame)
+        if (Keyboard.current.mKey.wasPressedThisFrame)
         {
-            Debug.Log($"[EconomyTester] Saldo actual: {EconomyManager.Instance.CurrentCoins}");
+            SaveManager.Instance.DeleteSave();
         }
     }
 }

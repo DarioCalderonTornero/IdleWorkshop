@@ -7,11 +7,13 @@ public class SaveManager : MonoBehaviour
     public static SaveManager Instance { get; private set; }
 
     private const string SaveFileName = "savegame.json";
-    private const float autoSaveInterval = 30f;
+    private const float autoSaveInterval = 15f;
 
     private string SaveFilePath => Path.Combine(Application.persistentDataPath, SaveFileName);
 
     private float _autoSaveTimer;
+
+    private bool autoSave = true;
 
     private void Awake()
     {
@@ -28,6 +30,7 @@ public class SaveManager : MonoBehaviour
     private void Start()
     {
         LoadGame();
+        autoSave = true;
     }
 
     private void Update()
@@ -38,6 +41,7 @@ public class SaveManager : MonoBehaviour
         {
             _autoSaveTimer = 0;
             SaveGame();
+            //Debug.Log($"[SaveManager] Juego guardado en {SaveFilePath}");
         }
     }
 
@@ -53,6 +57,8 @@ public class SaveManager : MonoBehaviour
 
     public void SaveGame()
     {
+        if (!autoSave) return;
+
         SaveData data = CollectSaveData();
 
         try
@@ -101,7 +107,7 @@ public class SaveManager : MonoBehaviour
         data.lastTimeSaved = DateTime.UtcNow.ToString("o");
 
         // Talleres
-        //data.workStations = WorkStationRegistry.Instance.GetAllSaveData();
+        data.workStations = WorkStationRegistry.Instance.GetAllSaveData();
 
         return data;
     }
@@ -112,7 +118,7 @@ public class SaveManager : MonoBehaviour
         EconomyManager.Instance.LoadCoins(data.coins);
 
         // Talleres
-        //WorkStationRegistry.Instance.LoadAllSaveData(data.workStations);
+        WorkStationRegistry.Instance.LoadAllSaveData(data.workStations);
     }
 
     //---HELPERS---
@@ -122,6 +128,7 @@ public class SaveManager : MonoBehaviour
         {
             File.Delete(SaveFilePath);
             Debug.Log("Save Deleted");
+            autoSave = false;
         }
     }
 }

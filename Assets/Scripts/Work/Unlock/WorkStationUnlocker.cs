@@ -48,4 +48,43 @@ public class WorkStationUnlocker : MonoBehaviour
         nextIndex++;
         OnWorkStationUnlocked?.Invoke();
     }
+
+    /// <summary>
+    /// Instancia un taller al cargar la partida guardada.
+    /// No gasta monedas ni dispara OnWorkStationUnlocked.
+    /// </summary>
+    public void RestoreWorkStation(WorkStationSaveData data)
+    {
+        if (data.stationId >= workStationsData.Count)
+        {
+            Debug.LogError($"[WorkStationUnlocker] No hay WorkStationData para el ID {data.stationId}");
+            return;
+        }
+
+        if (data.stationId >= workStationSpawnPoints.Count)
+        {
+            Debug.LogError($"[WorkStationUnlocker] No hay SpawnPoint para el ID {data.stationId}");
+            return;
+        }
+
+        GameObject go = Instantiate(
+            workStationsData[data.stationId].prefab,
+            workStationSpawnPoints[data.stationId].position,
+            Quaternion.identity);
+
+        WorkStation workStation = go.GetComponent<WorkStation>();
+
+        if (workStation == null)
+        {
+            Debug.LogError("[WorkStationUnlocker] El prefab no tiene componente WorkStation.");
+            Destroy(go);
+            return;
+        }
+
+        CustomerManager.Instance.RegisterWorkStation(workStation);
+        workStation.LoadSaveData(data);
+
+        if (data.stationId >= nextIndex)
+            nextIndex = data.stationId + 1;
+    }
 }

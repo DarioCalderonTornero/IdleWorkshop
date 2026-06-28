@@ -1,4 +1,5 @@
 using UnityEngine;
+using System;
 
 public class WorkDeskUnlockable : MonoBehaviour
 {
@@ -15,7 +16,7 @@ public class WorkDeskUnlockable : MonoBehaviour
     public bool IsUnlocked { get; private set; } = false;
     public double UnlockCost => unlockCost;
 
-    public System.Action<WorkDeskUnlockable> OnUnlocked;
+    public Action<WorkDeskUnlockable> OnUnlocked;
 
     void Awake()
     {

@@ -26,5 +26,12 @@ public abstract class UpgradeableBase : MonoBehaviour, IUpgradeable
         OnUpgraded(currentLevel);
     }
 
+    public void LoadLevel(int level)
+    {
+        currentLevel = level;
+        if (currentLevel > 0)
+            OnUpgraded(currentLevel);
+    }
+
     protected abstract void OnUpgraded(int newLevel);
 }

@@ -13,7 +13,7 @@ public class SaveData
 public class WorkStationSaveData
 {
     public int stationId;
-    public int workLevel;
+    public int workerLevel;
     public List<DeskSaveData> desks = new();
 }
 
