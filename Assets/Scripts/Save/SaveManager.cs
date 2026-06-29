@@ -15,6 +15,9 @@ public class SaveManager : MonoBehaviour
 
     private bool autoSave = true;
 
+    [Header("Referencias")]
+    [SerializeField] private ItemDatabase _itemDatabase;
+
     private void Awake()
     {
         if (Instance != null)
@@ -109,6 +112,8 @@ public class SaveManager : MonoBehaviour
         // Talleres
         data.workStations = WorkStationRegistry.Instance.GetAllSaveData();
 
+        data.bestiaryItems = BestiaryManager.Instance.GetSaveData();
+
         return data;
     }
 
@@ -119,6 +124,8 @@ public class SaveManager : MonoBehaviour
 
         // Talleres
         WorkStationRegistry.Instance.LoadAllSaveData(data.workStations);
+
+        BestiaryManager.Instance.LoadSaveData(data.bestiaryItems, _itemDatabase);  // nuevo
     }
 
     //---HELPERS---

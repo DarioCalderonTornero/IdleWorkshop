@@ -32,6 +32,13 @@ public class BestiaryUI : MonoBehaviour
     [SerializeField] private Color colorEpic = new Color(0.6f, 0f, 1f);
     [SerializeField] private Color colorLegendary = Color.yellow;
 
+    [Header("Estrellas en detalle")]
+    [SerializeField] private Image[] starImages;        // 5 imágenes de estrella
+    [SerializeField] private Sprite starFilled;         // estrella iluminada
+    [SerializeField] private Sprite starEmpty;          // estrella vacía/apagada
+
+    public static bool IsOpen { get; private set; } = false;
+
     void Start()
     {
         bestiaryPanel.SetActive(false);
@@ -41,12 +48,14 @@ public class BestiaryUI : MonoBehaviour
 
     public void OpenBestiary()
     {
+        IsOpen = true;
         bestiaryPanel.SetActive(true);
         PopulateGrid();
     }
 
     public void CloseBestiary()
     {
+        IsOpen = false;
         bestiaryPanel.SetActive(false);
         detailPanel.SetActive(false);
     }
@@ -98,6 +107,13 @@ public class BestiaryUI : MonoBehaviour
         detailDescription.text = item.description;
         detailRarity.text = GetRarityText(item.rarity);
         detailRarity.color = GetRarityColor(item.rarity);
+
+        // Actualiza las estrellas
+        int maxStars = BestiaryManager.Instance.GetMaxStars(item);
+        for (int i = 0; i < starImages.Length; i++)
+        {
+            starImages[i].sprite = i < maxStars ? starFilled : starEmpty;
+        }
     }
 
     string GetRarityText(ItemRarity rarity) => rarity switch

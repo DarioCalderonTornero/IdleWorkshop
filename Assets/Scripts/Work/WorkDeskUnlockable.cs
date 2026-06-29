@@ -91,6 +91,8 @@ public class WorkDeskUnlockable : MonoBehaviour
 
     void OnMouseDown()
     {
+        if (BestiaryUI.IsOpen) return;   // bloquea si el bestiario está abierto
+
         if (IsUnlocked)
         {
             IUpgradeable upgradeable = GetComponent<IUpgradeable>();

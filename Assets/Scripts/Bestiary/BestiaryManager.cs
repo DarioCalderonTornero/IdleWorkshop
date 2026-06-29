@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using System.Collections.Generic;
 
 public class BestiaryManager : MonoBehaviour
@@ -6,6 +6,7 @@ public class BestiaryManager : MonoBehaviour
     public static BestiaryManager Instance { get; private set; }
 
     private HashSet<ItemDefinition> _discovered = new();
+    private Dictionary<ItemDefinition, int> _maxStars = new();
 
     void Awake()
     {
@@ -14,12 +15,67 @@ public class BestiaryManager : MonoBehaviour
         DontDestroyOnLoad(gameObject);
     }
 
-    // Llamado desde Worker al terminar de procesar en una mesa
-    public void RegisterItem(ItemDefinition item)
+    // ── API de juego ─────────────────────────────────────────────────
+
+    public void RegisterItem(ItemDefinition item, int starsThisRound)
     {
         if (item == null) return;
+
         _discovered.Add(item);
+
+        if (!_maxStars.ContainsKey(item))
+            _maxStars[item] = starsThisRound;
+        else if (starsThisRound > _maxStars[item])
+            _maxStars[item] = starsThisRound;
     }
 
     public bool IsDiscovered(ItemDefinition item) => _discovered.Contains(item);
+
+    public int GetMaxStars(ItemDefinition item)
+        => _maxStars.TryGetValue(item, out int stars) ? stars : 0;
+
+    // ── Guardado ─────────────────────────────────────────────────────
+
+    public List<BestiaryItemSaveData> GetSaveData()
+    {
+        List<BestiaryItemSaveData> result = new();
+
+        foreach (ItemDefinition item in _discovered)
+        {
+            result.Add(new BestiaryItemSaveData
+            {
+                itemName = item.itemName,
+                discovered = true,
+                maxStars = _maxStars.TryGetValue(item, out int stars) ? stars : 0
+            });
+        }
+
+        return result;
+    }
+
+    // ── Carga ─────────────────────────────────────────────────────────
+
+    public void LoadSaveData(List<BestiaryItemSaveData> saveData, ItemDatabase database)
+    {
+        if (saveData == null || database == null) return;
+
+        // Construye un diccionario de nombre → ItemDefinition para búsqueda rápida
+        Dictionary<string, ItemDefinition> lookup = new();
+        foreach (ItemDefinition item in database.GetAll())
+        {
+            if (item != null && !lookup.ContainsKey(item.itemName))
+                lookup[item.itemName] = item;
+        }
+
+        foreach (BestiaryItemSaveData entry in saveData)
+        {
+            if (!lookup.TryGetValue(entry.itemName, out ItemDefinition item)) continue;
+
+            if (entry.discovered)
+                _discovered.Add(item);
+
+            if (entry.maxStars > 0)
+                _maxStars[item] = entry.maxStars;
+        }
+    }
 }

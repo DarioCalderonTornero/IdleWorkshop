@@ -51,8 +51,7 @@ public class Worker : MonoBehaviour
         itemGO.transform.SetParent(anchor);
         itemGO.transform.localPosition = Vector3.zero;
 
-        // 3. Copia la lista en este momento para que añadir mesas nuevas
-        //    durante el loop no rompa la iteración
+        // 3. Copia la lista
         List<WorkTable> desks = new List<WorkTable>(_workStation.GetUnlockedDesks());
 
         if (desks.Count == 0)
@@ -61,15 +60,27 @@ public class Worker : MonoBehaviour
             yield break;
         }
 
+        // Contador de estrellas de esta ronda
+        int starsThisRound = 0;
+
         foreach (WorkTable desk in desks)
         {
             yield return MoveTo(desk.PlayerSlotPos);
             PutDown(itemGO, desk.ItemSlotPos);
-            yield return ProcessRoutine(itemDef, desk);
+
+            // Procesa y recoge las estrellas de esta mesa
+            bool gotStar = false;
+            yield return ProcessRoutine(itemDef, desk, result => gotStar = result);
+
+            if (gotStar) starsThisRound++;
+
             yield return PickUpAnim(itemGO);
         }
 
-        // 4. Volver a recepción con el objeto
+        // Registra el objeto con las estrellas de esta ronda
+        BestiaryManager.Instance?.RegisterItem(itemDef, starsThisRound);
+
+        // 4. Volver a recepción
         yield return MoveTo(_workStation.ReceptionDesk.PlayerSlotPos);
 
         // 5. Dejar objeto para el cliente
@@ -82,7 +93,8 @@ public class Worker : MonoBehaviour
         yield return MoveTo(idlePosition.position);
     }
 
-    private IEnumerator ProcessRoutine(ItemDefinition itemDef, WorkTable desk)
+    private IEnumerator ProcessRoutine(ItemDefinition itemDef, WorkTable desk,
+        System.Action<bool> onComplete)
     {
         float processTime = desk.GetProcessTime(itemDef);
         float elapsed = 0f;
@@ -100,20 +112,20 @@ public class Worker : MonoBehaviour
         progressUI?.Hide();
 
         // Roll de estrella
-        if (desk.RollStar())
+        bool gotStar = desk.RollStar();
+        if (gotStar)
         {
-            // Spawn del popup encima de la mesa
-            Vector3 popupPos = desk.ItemSlotPos + Vector3.up * 0.1f;
+            Vector3 popupPos = desk.ItemSlotPos;
             StarPopupSpawner.Instance?.Spawn(popupPos);
-            Debug.Log($"[Worker] ¡Estrella conseguida en {desk.gameObject.name}!");
+            Debug.Log($"[Worker] ¡Estrella en {desk.gameObject.name}!");
         }
-
-        // Registra el objeto en el bestiario
-        BestiaryManager.Instance?.RegisterItem(itemDef);
 
         // Paga al terminar esta mesa
         int reward = desk.GetReward(itemDef);
         EconomyManager.Instance?.AddCoins(reward);
+
+        // Devuelve si se consiguió estrella
+        onComplete?.Invoke(gotStar);
     }
 
     private void PutDown(GameObject itemGO, Vector3 worldPos)
