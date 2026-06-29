@@ -4,7 +4,7 @@ public abstract class UpgradeableBase : MonoBehaviour, IUpgradeable
 {
     [SerializeField] protected UpgradeData upgradeData;
 
-    private int currentLevel = 0;
+    private int currentLevel = 1;
 
     public UpgradeData UpgradeData => upgradeData;
     public int CurrentLevel => currentLevel;
@@ -12,7 +12,7 @@ public abstract class UpgradeableBase : MonoBehaviour, IUpgradeable
     public bool CanUpgrade()
     {
         if (upgradeData == null) return false;
-        if (currentLevel >= upgradeData.maxLevel) return false;
+        if (currentLevel >= upgradeData.maxLevel) return false;  // maxLevel sigue siendo el tope
         return EconomyManager.Instance.CanAfford(
             upgradeData.GetCostForLevel(currentLevel));
     }

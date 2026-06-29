@@ -68,24 +68,36 @@ public class UpgradePanelUI : MonoBehaviour
         currentUnlockable = unlockable;
         currentTarget = null;
 
-        // Muestra solo el botón de desbloquear
         upgradeContent.SetActive(false);
         unlockButton.gameObject.SetActive(true);
 
+        bool meetsReqs = unlockable.MeetsRequirements();
         double cost = unlockable.UnlockCost;
-        unlockCostText.text = $"Desbloquear\n{CurrencyFormatter.Format(cost)}";
-        unlockButton.interactable = EconomyManager.Instance.CanAfford(cost);
+
+        if (meetsReqs)
+        {
+            // Requisitos cumplidos: muestra coste y permite desbloquear
+            unlockCostText.text = $"Desbloquear\n{cost} monedas";
+            unlockButton.interactable = EconomyManager.Instance.CanAfford(cost);
+        }
+        else
+        {
+            // Requisitos no cumplidos: muestra qué falta
+            unlockCostText.text = $"Requisitos pendientes:\n{unlockable.GetMissingRequirementsText()}";
+            unlockButton.interactable = false;
+        }
 
         unlockButton.onClick.RemoveAllListeners();
         unlockButton.onClick.AddListener(() =>
         {
+            if (!unlockable.MeetsRequirements()) return;
             if (!EconomyManager.Instance.SpendCoins(unlockable.UnlockCost)) return;
             unlockable.Unlock();
             Hide();
         });
 
-        if (animCoroutine != null) StopCoroutine(animCoroutine);
         state = PanelState.Showing;
+        if (animCoroutine != null) StopCoroutine(animCoroutine);
         animCoroutine = StartCoroutine(AnimateTo(shownY, () => state = PanelState.Visible));
     }
 
@@ -216,13 +228,23 @@ public class UpgradePanelUI : MonoBehaviour
 
         if (currentTarget != null)
         {
-            // Panel de mejora normal
             RefreshUI();
         }
         else if (currentUnlockable != null)
         {
-            // Panel de desbloqueo
-            unlockButton.interactable = EconomyManager.Instance.CanAfford(currentUnlockable.UnlockCost);
+            bool meetsReqs = currentUnlockable.MeetsRequirements();
+            if (meetsReqs)
+            {
+                unlockCostText.text = $"Desbloquear\n{currentUnlockable.UnlockCost} monedas";
+                unlockButton.interactable = EconomyManager.Instance.CanAfford(
+                    currentUnlockable.UnlockCost);
+            }
+            else
+            {
+                unlockCostText.text = $"Requisitos pendientes:\n" +
+                                      $"{currentUnlockable.GetMissingRequirementsText()}";
+                unlockButton.interactable = false;
+            }
         }
     }
 }

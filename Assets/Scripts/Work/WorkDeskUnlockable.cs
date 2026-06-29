@@ -1,10 +1,22 @@
 using UnityEngine;
-using System;
 
 public class WorkDeskUnlockable : MonoBehaviour
 {
+    [System.Serializable]
+    public class LevelRequirement
+    {
+        [Tooltip("Mesa que debe tener el nivel mínimo")]
+        public WorkDeskUpgradeable desk;
+        [Tooltip("Nivel mínimo requerido")]
+        public int minLevel;
+    }
+
     [Header("Desbloqueo")]
     [SerializeField] private double unlockCost = 500;
+
+    [Header("Requisitos de nivel (opcional)")]
+    [Tooltip("Mesas que deben estar en un nivel mínimo para poder desbloquear esta")]
+    [SerializeField] private LevelRequirement[] levelRequirements;
 
     [Header("Visual")]
     [SerializeField] private SpriteRenderer spriteRenderer;
@@ -16,11 +28,10 @@ public class WorkDeskUnlockable : MonoBehaviour
     public bool IsUnlocked { get; private set; } = false;
     public double UnlockCost => unlockCost;
 
-    public Action<WorkDeskUnlockable> OnUnlocked;
+    public System.Action<WorkDeskUnlockable> OnUnlocked;
 
     void Awake()
     {
-        // Aplica visual inicial antes de que WorkStation se suscriba
         if (unlockedByDefault)
         {
             IsUnlocked = true;
@@ -30,6 +41,38 @@ public class WorkDeskUnlockable : MonoBehaviour
         {
             SetVisual(false);
         }
+    }
+
+    // Comprueba si se cumplen todos los requisitos para desbloquear
+    public bool MeetsRequirements()
+    {
+        if (levelRequirements == null) return true;
+
+        foreach (var req in levelRequirements)
+        {
+            if (req.desk == null) continue;
+            if (req.desk.CurrentLevel < req.minLevel)
+                return false;
+        }
+        return true;
+    }
+
+    // Devuelve una descripción de qué requisitos faltan (para mostrar en UI)
+    public string GetMissingRequirementsText()
+    {
+        if (levelRequirements == null) return "";
+
+        System.Text.StringBuilder sb = new();
+        foreach (var req in levelRequirements)
+        {
+            if (req.desk == null) continue;
+            if (req.desk.CurrentLevel < req.minLevel)
+            {
+                sb.AppendLine($"• {req.desk.UpgradeData?.elementName ?? req.desk.gameObject.name} " +
+                              $"nivel {req.minLevel} (actual: {req.desk.CurrentLevel})");
+            }
+        }
+        return sb.ToString();
     }
 
     public void Unlock()
@@ -56,7 +99,6 @@ public class WorkDeskUnlockable : MonoBehaviour
         }
         else
         {
-            // Solo abrir si es la siguiente en la cola
             WorkStation station = GetComponentInParent<WorkStation>();
             if (station != null && station.GetNextLockedDesk() == this)
                 UpgradePanelUI.Instance.ShowUnlock(this);

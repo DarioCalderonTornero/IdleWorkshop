@@ -99,12 +99,21 @@ public class Worker : MonoBehaviour
         progressUI?.SetFill(1f);
         progressUI?.Hide();
 
-        // Paga al terminar esta mesa concreta
-        // Al terminar de procesar en una mesa, registra el objeto
+        // Roll de estrella
+        if (desk.RollStar())
+        {
+            // Spawn del popup encima de la mesa
+            Vector3 popupPos = desk.ItemSlotPos + Vector3.up * 0.1f;
+            StarPopupSpawner.Instance?.Spawn(popupPos);
+            Debug.Log($"[Worker] ¡Estrella conseguida en {desk.gameObject.name}!");
+        }
+
+        // Registra el objeto en el bestiario
         BestiaryManager.Instance?.RegisterItem(itemDef);
+
+        // Paga al terminar esta mesa
         int reward = desk.GetReward(itemDef);
         EconomyManager.Instance?.AddCoins(reward);
-        Debug.Log($"[Worker] Mesa completada — +{reward} monedas");
     }
 
     private void PutDown(GameObject itemGO, Vector3 worldPos)

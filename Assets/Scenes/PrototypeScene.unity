@@ -891,6 +891,51 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 40280d0a10bea5448abd8d7f3550ebef, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::InputManager
+--- !u!1 &343004428
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 343004429}
+  - component: {fileID: 343004430}
+  m_Layer: 0
+  m_Name: StarSpawner
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &343004429
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 343004428}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 753062473}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &343004430
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 343004428}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0f18764b4e829a346ad4188b2d0fb759, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::StarPopupSpawner
+  starPopupPrefab: {fileID: 1360740539706774537, guid: 47b3ef535ce9a1942a64c1d5d1bbe167, type: 3}
 --- !u!1 &391443000
 GameObject:
   m_ObjectHideFlags: 0
@@ -1350,6 +1395,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ff7050de3919d7e42bd4154a7877e393, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorkStationRegistry
+--- !u!114 &602793798 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 7295273767192178249, guid: 7135b9a0623f4b240a021037da9bd83c, type: 3}
+  m_PrefabInstance: {fileID: 5630955278118120101}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 52a8a0e79e244cf41b9f052b945e26c2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WorkDeskUpgradeable
 --- !u!1 &669116019
 GameObject:
   m_ObjectHideFlags: 0
@@ -1472,6 +1528,7 @@ Transform:
   - {fileID: 1635602516}
   - {fileID: 1298241782}
   - {fileID: 573949744}
+  - {fileID: 343004429}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &758850568
@@ -4507,6 +4564,18 @@ PrefabInstance:
       propertyPath: m_Name
       value: WorkStation
       objectReference: {fileID: 0}
+    - target: {fileID: 3074700373157269387, guid: 7135b9a0623f4b240a021037da9bd83c, type: 3}
+      propertyPath: levelRequirements.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3074700373157269387, guid: 7135b9a0623f4b240a021037da9bd83c, type: 3}
+      propertyPath: levelRequirements.Array.data[0].desk
+      value: 
+      objectReference: {fileID: 602793798}
+    - target: {fileID: 3074700373157269387, guid: 7135b9a0623f4b240a021037da9bd83c, type: 3}
+      propertyPath: levelRequirements.Array.data[0].minLevel
+      value: 15
+      objectReference: {fileID: 0}
     - target: {fileID: 4414621585746470334, guid: 7135b9a0623f4b240a021037da9bd83c, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -4551,6 +4620,10 @@ PrefabInstance:
       propertyPath: unlockTest
       value: 
       objectReference: {fileID: 391443002}
+    - target: {fileID: 5689938581384979152, guid: 7135b9a0623f4b240a021037da9bd83c, type: 3}
+      propertyPath: levelRequirements.Array.size
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents:
     - {fileID: 5689022052038830946, guid: 7135b9a0623f4b240a021037da9bd83c, type: 3}
     m_RemovedGameObjects: []

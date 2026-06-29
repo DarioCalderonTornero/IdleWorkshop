@@ -9,38 +9,55 @@ public class WorkTable : MonoBehaviour
     [SerializeField] private Transform itemSlot;
 
     [Header("Multiplicadores base")]
-    [Tooltip("Multiplica el baseRepairTime del objeto. <1 = más rápido")]
     [SerializeField] private float baseTimeMultiplier = 1f;
-
-    [Tooltip("Multiplica el rewardCoins del objeto")]
     [SerializeField] private float baseRewardMultiplier = 1f;
 
     private float _currentTimeMultiplier;
     private float _currentRewardMultiplier;
+    private float _currentStarChance;
+
+    // Referencia al nivel actual para calcular la probabilidad
+    private int _currentLevel = 1;
+    private UpgradeData _upgradeData;
 
     void Awake()
     {
         _currentTimeMultiplier = baseTimeMultiplier;
         _currentRewardMultiplier = baseRewardMultiplier;
+        _currentStarChance = 0f;
     }
 
     public Vector3 PlayerSlotPos => playerSlot.position;
     public Vector3 ItemSlotPos => itemSlot.position;
 
-    // Tiempo real de proceso para un objeto concreto
     public float GetProcessTime(ItemDefinition item)
         => Mathf.Max(0.1f, item.baseRepairTime * _currentTimeMultiplier);
 
-    // Recompensa real para un objeto concreto
     public int GetReward(ItemDefinition item)
         => Mathf.RoundToInt(item.rewardCoins * _currentRewardMultiplier);
 
-    // Llamado desde WorkDeskUpgradeable al mejorar
     public void ApplyMultipliers(float timeMultiplier, float rewardMultiplier)
     {
         _currentTimeMultiplier = timeMultiplier;
         _currentRewardMultiplier = rewardMultiplier;
     }
+
+    // Llamado desde WorkDeskUpgradeable al mejorar
+    public void ApplyUpgradeData(UpgradeData data, int level)
+    {
+        _upgradeData = data;
+        _currentLevel = level;
+        _currentStarChance = data.GetStarChanceForLevel(level);
+    }
+
+    // Devuelve true si se consigue estrella en esta mesa
+    public bool RollStar()
+    {
+        if (_currentStarChance <= 0f) return false;
+        return Random.Range(0f, 100f) < _currentStarChance;
+    }
+
+    public float CurrentStarChance => _currentStarChance;
 
 #if UNITY_EDITOR
     private void OnDrawGizmos()

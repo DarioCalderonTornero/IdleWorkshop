@@ -18,3 +18,8 @@ MonoBehaviour:
   baseCost: 15
   growthFactor: 1.5
   maxLevel: 20
+  timeReductionPerLevel: 0.05
+  rewardIncreasePerLevel: 0.1
+  baseStarChance: 100
+  starChanceIncreasePerLevel: 1
+  maxStarChance: 100

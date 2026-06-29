@@ -16,14 +16,16 @@ public class WorkDeskUpgradeable : UpgradeableBase
         if (_workTable == null || UpgradeData == null) return;
 
         float timeMultiplier = Mathf.Max(0.1f,
-            1f - (newLevel * UpgradeData.timeReductionPerLevel));
+            1f - (newLevel - 1) * UpgradeData.timeReductionPerLevel);
 
         float rewardMultiplier =
-            1f + (newLevel * UpgradeData.rewardIncreasePerLevel);
+            1f + (newLevel - 1) * UpgradeData.rewardIncreasePerLevel;
 
         _workTable.ApplyMultipliers(timeMultiplier, rewardMultiplier);
+        _workTable.ApplyUpgradeData(UpgradeData, newLevel);
 
         Debug.Log($"[WorkDeskUpgradeable] Nivel {newLevel} — " +
-                  $"tiempo ×{timeMultiplier:F2} — recompensa ×{rewardMultiplier:F2}");
+                  $"tiempo ×{timeMultiplier:F2} — recompensa ×{rewardMultiplier:F2} — " +
+                  $"estrella {UpgradeData.GetStarChanceForLevel(newLevel):F1}%");
     }
 }
