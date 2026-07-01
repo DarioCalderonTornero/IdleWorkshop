@@ -89,21 +89,4 @@ public class WorkDeskUnlockable : MonoBehaviour
             spriteRenderer.color = unlocked ? Color.white : lockedColor;
     }
 
-    void OnMouseDown()
-    {
-        if (BestiaryUI.IsOpen) return;   // bloquea si el bestiario está abierto
-
-        if (IsUnlocked)
-        {
-            IUpgradeable upgradeable = GetComponent<IUpgradeable>();
-            if (upgradeable != null)
-                UpgradePanelUI.Instance.Show(upgradeable);
-        }
-        else
-        {
-            WorkStation station = GetComponentInParent<WorkStation>();
-            if (station != null && station.GetNextLockedDesk() == this)
-                UpgradePanelUI.Instance.ShowUnlock(this);
-        }
-    }
 }

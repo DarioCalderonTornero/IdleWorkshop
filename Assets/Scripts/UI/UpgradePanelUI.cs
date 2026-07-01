@@ -25,6 +25,8 @@ public class UpgradePanelUI : MonoBehaviour
 
     private IUpgradeable currentTarget;
 
+    public bool IsVisible => state == PanelState.Visible || state == PanelState.Showing || state == PanelState.Hiding;
+
     private enum PanelState { Hidden, Showing, Visible, Hiding }
     private PanelState state = PanelState.Hidden;
 

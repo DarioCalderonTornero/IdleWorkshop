@@ -47,14 +47,14 @@ public class WorkStationRegistry : MonoBehaviour
 
     public void LoadAllSaveData(List<WorkStationSaveData> saveDataList)
     {
-        foreach (WorkStationSaveData data in saveDataList)
+        foreach (WorkStationSaveData workStatioSaveData in saveDataList)
         {
-            WorkStation ws = GetById(data.stationId);
+            WorkStation ws = GetById(workStatioSaveData.stationId);
 
             if (ws != null)
-                ws.LoadSaveData(data);
+                ws.LoadSaveData(workStatioSaveData);
             else
-                WorkStationUnlocker.Instance.RestoreWorkStation(data);
+                WorkStationUnlocker.Instance.RestoreWorkStation(workStatioSaveData);
         }
     }
 
