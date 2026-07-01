@@ -16,6 +16,7 @@ public class BestiaryUI : MonoBehaviour
     [SerializeField] private TextMeshProUGUI detailName;
     [SerializeField] private TextMeshProUGUI detailDescription;
     [SerializeField] private TextMeshProUGUI detailRarity;
+    [SerializeField] private TextMeshProUGUI detailTotalSold;
     [SerializeField] private Button detailCloseButton;
 
     [Header("Base de datos")]
@@ -108,12 +109,14 @@ public class BestiaryUI : MonoBehaviour
         detailRarity.text = GetRarityText(item.rarity);
         detailRarity.color = GetRarityColor(item.rarity);
 
-        // Actualiza las estrellas
+        // Contador de vendidos
+        int sold = BestiaryManager.Instance.GetTotalSold(item);
+        detailTotalSold.text = $"Vendidos en total: {sold}";
+
+        // Estrellas
         int maxStars = BestiaryManager.Instance.GetMaxStars(item);
         for (int i = 0; i < starImages.Length; i++)
-        {
             starImages[i].sprite = i < maxStars ? starFilled : starEmpty;
-        }
     }
 
     string GetRarityText(ItemRarity rarity) => rarity switch

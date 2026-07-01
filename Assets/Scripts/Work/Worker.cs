@@ -86,6 +86,9 @@ public class Worker : MonoBehaviour
         // 5. Dejar objeto para el cliente
         PutDown(itemGO, _workStation.ReceptionItemPoint.position);
 
+        // Registra como vendido al terminar todas las mesas
+        BestiaryManager.Instance?.RegisterSold(itemDef);
+
         // 6. Avisar que terminó
         _workStation.OnWorkCompleted();
 

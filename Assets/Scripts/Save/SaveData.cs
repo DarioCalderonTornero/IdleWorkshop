@@ -32,4 +32,5 @@ public class BestiaryItemSaveData
     public string itemName;     // clave para identificar el ItemDefinition
     public bool discovered;
     public int maxStars;
+    public int totalSold;
 }

@@ -7,6 +7,7 @@ public class BestiaryManager : MonoBehaviour
 
     private HashSet<ItemDefinition> _discovered = new();
     private Dictionary<ItemDefinition, int> _maxStars = new();
+    private Dictionary<ItemDefinition, int> _totalSold = new();   // nuevo
 
     void Awake()
     {
@@ -29,10 +30,22 @@ public class BestiaryManager : MonoBehaviour
             _maxStars[item] = starsThisRound;
     }
 
-    public bool IsDiscovered(ItemDefinition item) => _discovered.Contains(item);
+    // Llamado cuando el objeto completa todas las mesas y se devuelve al cliente
+    public void RegisterSold(ItemDefinition item)
+    {
+        if (item == null) return;
 
+        if (!_totalSold.ContainsKey(item))
+            _totalSold[item] = 1;
+        else
+            _totalSold[item]++;
+    }
+
+    public bool IsDiscovered(ItemDefinition item) => _discovered.Contains(item);
     public int GetMaxStars(ItemDefinition item)
         => _maxStars.TryGetValue(item, out int stars) ? stars : 0;
+    public int GetTotalSold(ItemDefinition item)
+        => _totalSold.TryGetValue(item, out int sold) ? sold : 0;
 
     // ── Guardado ─────────────────────────────────────────────────────
 
@@ -46,7 +59,8 @@ public class BestiaryManager : MonoBehaviour
             {
                 itemName = item.itemName,
                 discovered = true,
-                maxStars = _maxStars.TryGetValue(item, out int stars) ? stars : 0
+                maxStars = _maxStars.TryGetValue(item, out int stars) ? stars : 0,
+                totalSold = _totalSold.TryGetValue(item, out int sold) ? sold : 0
             });
         }
 
@@ -59,23 +73,18 @@ public class BestiaryManager : MonoBehaviour
     {
         if (saveData == null || database == null) return;
 
-        // Construye un diccionario de nombre → ItemDefinition para búsqueda rápida
         Dictionary<string, ItemDefinition> lookup = new();
         foreach (ItemDefinition item in database.GetAll())
-        {
             if (item != null && !lookup.ContainsKey(item.itemName))
                 lookup[item.itemName] = item;
-        }
 
         foreach (BestiaryItemSaveData entry in saveData)
         {
             if (!lookup.TryGetValue(entry.itemName, out ItemDefinition item)) continue;
 
-            if (entry.discovered)
-                _discovered.Add(item);
-
-            if (entry.maxStars > 0)
-                _maxStars[item] = entry.maxStars;
+            if (entry.discovered) _discovered.Add(item);
+            if (entry.maxStars > 0) _maxStars[item] = entry.maxStars;
+            if (entry.totalSold > 0) _totalSold[item] = entry.totalSold;
         }
     }
 }
