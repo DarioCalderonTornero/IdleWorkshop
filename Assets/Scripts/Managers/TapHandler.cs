@@ -37,12 +37,15 @@ public class TapHandler : MonoBehaviour
     {
         InputManager.Instance.OnTap -= HandleTap;
     }
-    
+
     //Tap
     private void HandleTap(Vector2 screenPosition)
     {
         if (BestiaryUI.IsOpen) return;
         if (UpgradePanelUI.Instance.IsVisible) return;
+
+        // Boost de tap a todos los workers activos
+        WorkerRegistry.Instance?.ApplyTapBoostToAll(0.1f);
 
         Vector2 worldPos = mainCamera.ScreenToWorldPoint(screenPosition);
         RaycastHit2D hit = Physics2D.Raycast(worldPos, Vector2.zero, Mathf.Infinity, tapLayers);
@@ -51,7 +54,6 @@ public class TapHandler : MonoBehaviour
 
         GameObject tapped = hit.collider.gameObject;
 
-        // ¿Es el Worker?
         WorkerUpgradeable workerUpgradeable = tapped.GetComponent<WorkerUpgradeable>();
         if (workerUpgradeable != null)
         {
@@ -59,7 +61,6 @@ public class TapHandler : MonoBehaviour
             return;
         }
 
-        // ¿Es una WorkDesk?
         WorkDeskUnlockable unlockable = tapped.GetComponent<WorkDeskUnlockable>();
         if (unlockable != null)
         {

@@ -29,6 +29,8 @@ public class Worker : MonoBehaviour
         _workStation = workStation;
         if (idlePosition != null)
             transform.position = idlePosition.position;
+
+        WorkerRegistry.Instance?.Register(this);
     }
 
     public void StartWork(GameObject itemGO, ItemDefinition itemDef)
@@ -97,7 +99,7 @@ public class Worker : MonoBehaviour
     }
 
     private IEnumerator ProcessRoutine(ItemDefinition itemDef, WorkTable desk,
-        System.Action<bool> onComplete)
+    System.Action<bool> onComplete)
     {
         float processTime = desk.GetProcessTime(itemDef);
         float elapsed = 0f;
@@ -106,7 +108,15 @@ public class Worker : MonoBehaviour
 
         while (elapsed < processTime)
         {
+            // Consume el boost acumulado por taps
+            if (_tapBoostAccumulated > 0f)
+            {
+                elapsed += _tapBoostAccumulated;
+                _tapBoostAccumulated = 0f;
+            }
+
             elapsed += Time.deltaTime;
+            elapsed = Mathf.Min(elapsed, processTime); // no sobrepasa el límite
             progressUI?.SetFill(elapsed / processTime);
             yield return null;
         }
@@ -118,8 +128,7 @@ public class Worker : MonoBehaviour
         bool gotStar = desk.RollStar();
         if (gotStar)
         {
-            Vector3 popupPos = desk.ItemSlotPos;
-            StarPopupSpawner.Instance?.Spawn(popupPos);
+            StarPopupSpawner.Instance?.Spawn(desk.ItemSlotPos);
             Debug.Log($"[Worker] ¡Estrella en {desk.gameObject.name}!");
         }
 
@@ -127,7 +136,9 @@ public class Worker : MonoBehaviour
         int reward = desk.GetReward(itemDef);
         EconomyManager.Instance?.AddCoins(reward);
 
-        // Devuelve si se consiguió estrella
+        // Registra en bestiario
+        BestiaryManager.Instance?.RegisterItem(itemDef, 0);
+
         onComplete?.Invoke(gotStar);
     }
 
@@ -169,6 +180,21 @@ public class Worker : MonoBehaviour
             yield return null;
         }
         transform.position = target;
+    }
+
+    // Variable de boost acumulado
+    private float _tapBoostAccumulated = 0f;
+    private readonly object _boostLock = new object();
+
+    // Llamado desde TapHandler
+    public void ApplyTapBoost(float seconds)
+    {
+        _tapBoostAccumulated += seconds;
+    }
+
+    void OnDestroy()
+    {
+        WorkerRegistry.Instance?.Unregister(this);
     }
 
 #if UNITY_EDITOR
