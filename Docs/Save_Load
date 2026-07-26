@@ -1,0 +1,172 @@
+# 📋 SCRIPTS — Grupo: Save/Load
+
+---
+
+## SaveManager
+
+**Tipo:** Manager (Singleton)  
+**GameObject:** `---MANAGERS---` → hijo vacío llamado `SaveManager`  
+**Responsabilidad:** Gestiona el guardado y carga del estado completo del juego en un archivo JSON. Coordina con el resto de sistemas para recopilar y aplicar los datos guardados.
+
+---
+
+### Campos en el Inspector
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `_itemDatabase` | `ItemDatabase` (SO) | Necesario para restaurar las referencias de `ItemDefinition` al cargar el bestiario |
+
+---
+
+### API pública
+| Método | Descripción |
+|---|---|
+| `SaveGame()` | Guarda el estado completo en JSON. No guarda si `autoSave` es `false` |
+| `LoadGame()` | Carga el archivo JSON y aplica el estado a todos los sistemas |
+| `DeleteSave()` | Borra el archivo de guardado y desactiva el autosave para esa sesión |
+
+---
+
+### Es llamado desde
+| Script | Motivo |
+|---|---|
+| `EconomyTester` | `DeleteSave` al pulsar la tecla M durante testeo |
+
+---
+
+### Llama a
+| Script | Motivo |
+|---|---|
+| `EconomyManager` | `GetCurrentCoins` al guardar, `LoadCoins` al cargar |
+| `WorkStationRegistry` | `GetAllSaveData` al guardar, `LoadAllSaveData` al cargar |
+| `BestiaryManager` | `GetSaveData` al guardar, `LoadSaveData` al cargar |
+
+---
+
+### Notas técnicas
+- El archivo se guarda en `Application.persistentDataPath/savegame.json`
+- Autosave cada 15 segundos en `Update`
+- Guarda también en `OnApplicationPause` (salir al home en móvil) y `OnApplicationQuit`
+- `autoSave = false` tras `DeleteSave()` evita que `OnApplicationQuit` vuelva a crear el archivo
+- El timestamp `lastTimeSaved` se guarda en formato ISO 8601 — preparado para el sistema de tiempo offline
+
+---
+
+## SaveData / WorkStationSaveData / DeskSaveData / BestiaryItemSaveData
+
+**Tipo:** Clases de datos puras (no MonoBehaviour)  
+**GameObject:** Ninguno — no van en escena  
+**Responsabilidad:** Estructuras serializables a JSON que representan el estado completo del juego. Son el contrato entre el `SaveManager` y el resto de sistemas.
+
+---
+
+### Campos
+**`SaveData`** — estructura raíz del archivo JSON:
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `coins` | `double` | Saldo actual del jugador |
+| `lastTimeSaved` | `string` | Timestamp ISO 8601 del último guardado |
+| `workStations` | `List<WorkStationSaveData>` | Estado de cada taller |
+| `bestiaryItems` | `List<BestiaryItemSaveData>` | Estado del bestiario |
+
+**`WorkStationSaveData`** — estado de un taller:
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `stationId` | `int` | Identificador único del taller |
+| `workerLevel` | `int` | Nivel actual del worker |
+| `desks` | `List<DeskSaveData>` | Estado de cada mesa |
+
+**`DeskSaveData`** — estado de una mesa:
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `deskIndex` | `int` | Índice de la mesa dentro del taller (0 a 4) |
+| `level` | `int` | Nivel actual de la mesa |
+| `isUnlocked` | `bool` | Si la mesa está desbloqueada |
+
+**`BestiaryItemSaveData`** — estado de un objeto del bestiario:
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `itemName` | `string` | Nombre del objeto — clave para identificar el `ItemDefinition` |
+| `discovered` | `bool` | Si el objeto ha sido descubierto |
+| `maxStars` | `int` | Estrellas máximas conseguidas |
+| `totalSold` | `int` | Total de veces vendido |
+
+---
+
+### Notas técnicas
+- Todas usan `[Serializable]` para que `JsonUtility` pueda convertirlas a JSON
+- No tienen lógica — solo datos
+- Viven todas en el mismo archivo `SaveData.cs`
+
+---
+
+## WorkStationRegistry
+
+**Tipo:** Manager (Singleton)  
+**GameObject:** `---MANAGERS---` → hijo vacío llamado `WorkStationRegistry`  
+**Responsabilidad:** Lleva el registro de todos los `WorkStation` activos en escena. Es el intermediario entre `SaveManager` y los talleres individuales para guardar y cargar su estado.
+
+---
+
+### Campos en el Inspector
+Ninguno. No requiere asignación manual.
+
+---
+
+### API pública
+| Método | Descripción |
+|---|---|
+| `Register(WorkStation)` | Añade un taller al registro |
+| `UnRegister(WorkStation)` | Elimina un taller del registro |
+| `GetAllSaveData()` | Recopila el estado de todos los talleres y lo devuelve como lista |
+| `LoadAllSaveData(List)` | Aplica los datos guardados a cada taller — si no existe lo instancia via `WorkStationUnlocker` |
+
+---
+
+### Es llamado desde
+| Script | Motivo |
+|---|---|
+| `WorkStation` | `Register` en su `Awake` |
+| `SaveManager` | `GetAllSaveData` al guardar, `LoadAllSaveData` al cargar |
+
+---
+
+### Llama a
+| Script | Motivo |
+|---|---|
+| `WorkStation` | `GetSaveData` y `LoadSaveData` por cada taller |
+| `WorkStationUnlocker` | `RestoreWorkStation` si un taller guardado no existe en escena |
+
+---
+
+## WorkerRegistry
+
+**Tipo:** Manager (Singleton)  
+**GameObject:** `---MANAGERS---` → hijo vacío llamado `WorkerRegistry`  
+**Responsabilidad:** Lleva el registro de todos los `Worker` activos en escena. Permite aplicar el tap boost a todos los workers simultáneamente desde el `TapHandler`.
+
+---
+
+### Campos en el Inspector
+Ninguno. No requiere asignación manual.
+
+---
+
+### API pública
+| Método | Descripción |
+|---|---|
+| `Register(Worker)` | Añade un worker al registro |
+| `Unregister(Worker)` | Elimina un worker del registro |
+| `ApplyTapBoostToAll(float)` | Aplica un boost de segundos a todos los workers activos |
+
+---
+
+### Es llamado desde
+| Script | Motivo |
+|---|---|
+| `Worker` | `Register` en su `Init`, `Unregister` en su `OnDestroy` |
+| `TapHandler` | `ApplyTapBoostToAll` en cada tap |
+
+---
+
+### Notas técnicas
+- Los workers se registran en `Init` y no en `Awake` — asegura que `WorkStation` ya les ha pasado su referencia antes de registrarse
