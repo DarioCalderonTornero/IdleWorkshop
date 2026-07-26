@@ -170,3 +170,5 @@ Ninguno. No requiere asignación manual.
 
 ### Notas técnicas
 - Los workers se registran en `Init` y no en `Awake` — asegura que `WorkStation` ya les ha pasado su referencia antes de registrarse
+
+
