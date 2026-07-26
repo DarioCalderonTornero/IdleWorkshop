@@ -186,3 +186,81 @@ Actualmente ningún script llama a `PlaySFX` — pendiente de integrar cuando se
 - La música arranca automáticamente en `Start` con `music1Clip`
 - `PlaySFX` usa `PlayOneShot` para que los SFX no corten entre sí
 - **Bug conocido:** `PlaySFX` usa `musicAudioSource` en vez de `SFXAudioSource` — hay que corregir esta línea: `musicAudioSource.PlayOneShot` → `SFXAudioSource.PlayOneShot`
+
+---
+
+## StarPopupSpawner
+
+**Tipo:** Manager (Singleton)  
+**GameObject:** `---MANAGERS---` → hijo vacío llamado `StarPopupSpawner`  
+**Responsabilidad:** Instancia el popup visual de estrella en una posición del mundo cuando el `Worker` consigue una estrella al procesar un objeto en una mesa.
+
+---
+
+### Campos en el Inspector
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `starPopupPrefab` | `GameObject` | Prefab del popup de estrella — debe tener el componente `StarPopupUI` |
+
+---
+
+### API pública
+| Método | Descripción |
+|---|---|
+| `Spawn(Vector3)` | Instancia el popup en la posición mundial indicada y llama a `Play()` |
+
+---
+
+### Es llamado desde
+| Script | Motivo |
+|---|---|
+| `Worker` | Al conseguir una estrella en `ProcessRoutine` |
+
+---
+
+### Notas técnicas
+- El prefab instanciado se autodestruye al terminar su animación — gestionado por `StarPopupUI`
+- Si `starPopupPrefab` es null no hace nada y no da error
+
+---
+
+## BestiaryManager
+
+**Tipo:** Manager (Singleton)  
+**GameObject:** `---MANAGERS---` → hijo vacío llamado `BestiaryManager`  
+**Responsabilidad:** Registra y gestiona el progreso del bestiario del jugador. Lleva la cuenta de qué objetos han sido descubiertos, las estrellas máximas conseguidas por objeto y el total de objetos vendidos. También gestiona el guardado y carga de estos datos.
+
+---
+
+### Campos en el Inspector
+Ninguno. No requiere asignación manual.
+
+---
+
+### API pública
+| Método | Descripción |
+|---|---|
+| `RegisterItem(ItemDefinition, int)` | Marca un objeto como descubierto y actualiza las estrellas máximas si procede |
+| `RegisterSold(ItemDefinition)` | Incrementa el contador de vendidos de un objeto |
+| `IsDiscovered(ItemDefinition)` | Devuelve `true` si el objeto ha sido descubierto |
+| `GetMaxStars(ItemDefinition)` | Devuelve las estrellas máximas conseguidas para un objeto |
+| `GetTotalSold(ItemDefinition)` | Devuelve el total de veces que se ha vendido un objeto |
+| `GetSaveData()` | Devuelve la lista de `BestiaryItemSaveData` para guardar |
+| `LoadSaveData(List, ItemDatabase)` | Restaura el estado del bestiario desde los datos guardados |
+
+---
+
+### Es llamado desde
+| Script | Motivo |
+|---|---|
+| `Worker` | `RegisterItem` al terminar de procesar en una mesa, `RegisterSold` al entregar al cliente |
+| `BestiaryUI` | `IsDiscovered`, `GetMaxStars`, `GetTotalSold` para mostrar el estado en la UI |
+| `SaveManager` | `GetSaveData` al guardar, `LoadSaveData` al cargar |
+
+---
+
+### Notas técnicas
+- Usa `HashSet<ItemDefinition>` para descubiertos — búsqueda O(1) sin duplicados
+- Usa `Dictionary<ItemDefinition, int>` para estrellas y vendidos
+- La clave de guardado es `item.itemName` — debe ser único por objeto en `ItemDatabase`
+- `LoadSaveData` construye un lookup por nombre para restaurar las referencias a `ItemDefinition`
