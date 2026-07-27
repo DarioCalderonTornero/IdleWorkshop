@@ -24,9 +24,13 @@ public class WorkStationUnlocker : MonoBehaviour
             Destroy(gameObject);
             return;
         }
-
         Instance = this;
         DontDestroyOnLoad(gameObject);
+
+        if (workStationsData.Count != workStationSpawnPoints.Count)
+        {
+            Debug.LogError($"[WorkStationUnlocker] Desincronización: {workStationsData.Count} WorkStationData vs {workStationSpawnPoints.Count} SpawnPoints.");
+        }
     }
 
     public void UnlockNextWorkStation()
@@ -35,13 +39,14 @@ public class WorkStationUnlocker : MonoBehaviour
 
         GameObject go = Instantiate(workStationsData[nextIndex].prefab, workStationSpawnPoints[nextIndex].position, Quaternion.identity);
         WorkStation workStation = go.GetComponent<WorkStation>();
-
         if (workStation == null)
         {
             Debug.LogError("[WorkStationUnlocker] El prefab no tiene componente WorkStation.");
             Destroy(go);
             return;
         }
+
+        workStation.Init(nextIndex);
 
         EconomyManager.Instance.SpendCoins(NextCost);
         CustomerManager.Instance.RegisterWorkStation(workStation);
@@ -60,7 +65,6 @@ public class WorkStationUnlocker : MonoBehaviour
             Debug.LogError($"[WorkStationUnlocker] No hay WorkStationData para el ID {data.stationId}");
             return;
         }
-
         if (data.stationId >= workStationSpawnPoints.Count)
         {
             Debug.LogError($"[WorkStationUnlocker] No hay SpawnPoint para el ID {data.stationId}");
@@ -71,15 +75,15 @@ public class WorkStationUnlocker : MonoBehaviour
             workStationsData[data.stationId].prefab,
             workStationSpawnPoints[data.stationId].position,
             Quaternion.identity);
-
         WorkStation workStation = go.GetComponent<WorkStation>();
-
         if (workStation == null)
         {
             Debug.LogError("[WorkStationUnlocker] El prefab no tiene componente WorkStation.");
             Destroy(go);
             return;
         }
+
+        workStation.Init(data.stationId);
 
         CustomerManager.Instance.RegisterWorkStation(workStation);
         workStation.LoadSaveData(data);

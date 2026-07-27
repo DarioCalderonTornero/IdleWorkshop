@@ -171,6 +171,7 @@ MonoBehaviour:
   - {fileID: 5573237268275674869}
   worker: {fileID: 3515575485895452748}
   receptionItemPoint: {fileID: 4765169807753219349}
+  stationId: 0
 --- !u!1 &876515480809948643
 GameObject:
   m_ObjectHideFlags: 0
@@ -356,6 +357,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorkDeskUnlockable
   unlockCost: 0
+  levelRequirements: []
   spriteRenderer: {fileID: 1185697879515357120}
   lockedColor: {r: 0.3, g: 0.3, b: 0.3, a: 1}
   unlockedByDefault: 1
@@ -530,7 +532,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 52a8a0e79e244cf41b9f052b945e26c2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorkDeskUpgradeable
-  upgradeData: {fileID: 11400000, guid: 6ffdcd2b1077ffc4789f37426ad38ea4, type: 2}
+  upgradeData: {fileID: 11400000, guid: 46ba990e75492c442998507eac40b262, type: 2}
 --- !u!114 &8874009533334910737
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -544,6 +546,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorkDeskUnlockable
   unlockCost: 500
+  levelRequirements: []
   spriteRenderer: {fileID: 4357590599438930523}
   lockedColor: {r: 0.3, g: 0.3, b: 0.3, a: 1}
   unlockedByDefault: 0
@@ -785,7 +788,6 @@ GameObject:
   - component: {fileID: 9163143336494470527}
   - component: {fileID: 1048841281330894974}
   - component: {fileID: 3515575485895452748}
-  - component: {fileID: 5689022052038830946}
   - component: {fileID: 6719055825507630735}
   - component: {fileID: 3960848090895338918}
   - component: {fileID: 1135752389359365606}
@@ -889,19 +891,6 @@ MonoBehaviour:
   headAnchor: {fileID: 538583521957804975}
   baseMoveSpeed: 4
   progressUI: {fileID: 5227748705249166708}
---- !u!114 &5689022052038830946
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3425422087177163578}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e81d6503450a8fe4da93cd53f0161bcd, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::WorkUpgradeButtonTest
-  unlockTest: {fileID: 0}
 --- !u!114 &6719055825507630735
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1177,7 +1166,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 52a8a0e79e244cf41b9f052b945e26c2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorkDeskUpgradeable
-  upgradeData: {fileID: 11400000, guid: 6ffdcd2b1077ffc4789f37426ad38ea4, type: 2}
+  upgradeData: {fileID: 11400000, guid: 419cf4f866a32cf4a97cd82e2246b91f, type: 2}
 --- !u!114 &5573237268275674869
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1191,6 +1180,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorkDeskUnlockable
   unlockCost: 500
+  levelRequirements: []
   spriteRenderer: {fileID: 6027592687554679100}
   lockedColor: {r: 0.3, g: 0.3, b: 0.3, a: 1}
   unlockedByDefault: 0
@@ -1458,7 +1448,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 52a8a0e79e244cf41b9f052b945e26c2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorkDeskUpgradeable
-  upgradeData: {fileID: 11400000, guid: 6ffdcd2b1077ffc4789f37426ad38ea4, type: 2}
+  upgradeData: {fileID: 11400000, guid: bff3545247f3eb044befa6f58773b763, type: 2}
 --- !u!114 &3074700373157269387
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1472,6 +1462,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorkDeskUnlockable
   unlockCost: 500
+  levelRequirements: []
   spriteRenderer: {fileID: 3893826014122791507}
   lockedColor: {r: 0.3, g: 0.3, b: 0.3, a: 1}
   unlockedByDefault: 0
@@ -1708,7 +1699,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 52a8a0e79e244cf41b9f052b945e26c2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorkDeskUpgradeable
-  upgradeData: {fileID: 11400000, guid: 6ffdcd2b1077ffc4789f37426ad38ea4, type: 2}
+  upgradeData: {fileID: 11400000, guid: 6da142cac298af849af7a3c632d9589d, type: 2}
 --- !u!114 &2215915465811879678
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1722,6 +1713,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WorkDeskUnlockable
   unlockCost: 500
+  levelRequirements: []
   spriteRenderer: {fileID: 4419692667435312594}
   lockedColor: {r: 0.3, g: 0.3, b: 0.3, a: 1}
   unlockedByDefault: 0

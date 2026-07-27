@@ -16,9 +16,10 @@ public class WorkStation : MonoBehaviour
     [SerializeField] private Transform receptionItemPoint;
 
     [Header("Identificador")]
-    [SerializeField] private int stationId;
+    private int stationId;
     public int StationId => stationId;
 
+    private bool isInitialized = false;
 
     // ── Estado ───────────────────────────────────────────────────────
     private bool _isBusy;
@@ -49,7 +50,7 @@ public class WorkStation : MonoBehaviour
                 desk.OnUnlocked += RegisterDesk;
         }
 
-        WorkStationRegistry.Instance.Register(this);    
+        //WorkStationRegistry.Instance.Register(this);    
     }
 
     // ── Registro de mesas ────────────────────────────────────────────
@@ -134,6 +135,19 @@ public class WorkStation : MonoBehaviour
             if (deskUpgradeable != null)
                 deskUpgradeable.LoadLevel(deskData.level);
         }
+    }
+
+    public void Init(int id)
+    {
+        if (isInitialized)
+        {
+            Debug.LogWarning($"[WorkStation] Init() llamado más de una vez en {gameObject.name}. Ignorado.");
+            return;
+        }
+
+        stationId = id;
+        isInitialized = true;
+        WorkStationRegistry.Instance.Register(this);
     }
 
 }

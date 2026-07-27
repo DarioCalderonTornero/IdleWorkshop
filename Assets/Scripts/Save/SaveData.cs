@@ -7,7 +7,7 @@ public class SaveData
     public double coins;
     public string lastTimeSaved;
     public List<WorkStationSaveData> workStations = new();
-    public List<BestiaryItemSaveData> bestiaryItems = new();  // nuevo
+    public List<BestiaryItemSaveData> bestiaryItems = new();
 }
 
 [Serializable]
@@ -29,7 +29,7 @@ public class DeskSaveData
 [Serializable]
 public class BestiaryItemSaveData
 {
-    public string itemName;     // clave para identificar el ItemDefinition
+    public string itemName;   
     public bool discovered;
     public int maxStars;
     public int totalSold;
