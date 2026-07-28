@@ -16,7 +16,7 @@ public class ItemDatabase : ScriptableObject
 
     public ItemDefinition[] GetAll() => items;
 
-    public ItemDefinition GetRandom()
+    public ItemDefinition GetRandom(ItemMaterial material)
     {
         if (items == null || items.Length == 0)
         {
@@ -26,16 +26,21 @@ public class ItemDatabase : ScriptableObject
 
         ItemRarity rarity = RollRarity();
 
-        // Filtra los items de esa rareza
+        // Filtra por rareza Y material
         ItemDefinition[] pool = items
-            .Where(i => i.rarity == rarity)
+            .Where(i => i.rarity == rarity && i.material == material)
             .ToArray();
 
-        // Si no hay items de esa rareza, coge uno aleatorio de cualquier rareza
+        // Si no hay ítems de esa rareza para ese material, cae a cualquier rareza de ese material
         if (pool.Length == 0)
         {
-            Debug.LogWarning($"[ItemDatabase] No hay ítems de rareza {rarity}, usando aleatorio.");
-            return items[Random.Range(0, items.Length)];
+            pool = items.Where(i => i.material == material).ToArray();
+        }
+
+        if (pool.Length == 0)
+        {
+            Debug.LogWarning($"[ItemDatabase] No hay ítems del material {material}.");
+            return null;
         }
 
         return pool[Random.Range(0, pool.Length)];

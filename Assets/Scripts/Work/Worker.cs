@@ -54,8 +54,7 @@ public class Worker : MonoBehaviour
         itemGO.transform.localPosition = Vector3.zero;
 
         // 3. Copia la lista
-        List<WorkTable> desks = new List<WorkTable>(_workStation.GetUnlockedDesks());
-
+        List<WorkTable> desks = new List<WorkTable>(_workStation.GetUnlockedDesks(itemDef.material));
         if (desks.Count == 0)
         {
             Debug.LogError("[Worker] No hay mesas desbloqueadas.");

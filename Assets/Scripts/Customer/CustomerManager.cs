@@ -75,7 +75,12 @@ public class CustomerManager : MonoBehaviour
             return;
         }
 
-        ItemDefinition itemDef = itemDatabase != null ? itemDatabase.GetRandom() : null;
+        ItemMaterial material = ItemMaterial.Cloth;
+        bool woodUnlocked = workStations.Exists(ws => ws.IsMaterialUnlocked(ItemMaterial.Wood));
+        if (woodUnlocked && Random.value < 0.5f)
+            material = ItemMaterial.Wood;
+
+        ItemDefinition itemDef = itemDatabase != null ? itemDatabase.GetRandom(material) : null;
         if (itemDef == null)
         {
             Debug.LogWarning("[CustomerManager] No se pudo obtener un ItemDefinition.");
@@ -106,17 +111,25 @@ public class CustomerManager : MonoBehaviour
     /// </summary>
     public void OnItemPlacedOnDesk(ItemDefinition itemDef, GameObject itemGO)
     {
-        WorkStation freeStation = GetFreeWorkStation();
+        WorkStation freeStation = GetFreeWorkStation(itemDef.material);
 
         if (freeStation == null)
         {
-            Debug.LogWarning("[CustomerManager] No hay WorkStations libres.");
+            Debug.LogWarning("[CustomerManager] No hay WorkStations libres para ese material.");
             return;
         }
 
         freeStation.RequestWork(itemGO, itemDef);
     }
 
+    private WorkStation GetFreeWorkStation(ItemMaterial material)
+    {
+        foreach (WorkStation ws in workStations)
+        {
+            if (ws.IsMaterialUnlocked(material) && !ws.IsBusy) return ws;
+        }
+        return null;
+    }
     /// <summary>
     /// La WorkStation ha terminado el trabajo.
     /// El primer cliente de la cola puede recoger su objeto y marcharse.
@@ -146,16 +159,6 @@ public class CustomerManager : MonoBehaviour
     }
 
     // ── WorkStations ─────────────────────────────────────────────────
-
-    /// <summary>Devuelve la primera WorkStation libre, o null si todas están ocupadas.</summary>
-    private WorkStation GetFreeWorkStation()
-    {
-        foreach (WorkStation ws in workStations)
-        {
-            if (!ws.IsBusy) return ws;
-        }
-        return null;
-    }
 
     /// <summary>
     /// Registra una nueva WorkStation en tiempo de ejecución.
