@@ -30,7 +30,6 @@ public class SaveManager : MonoBehaviour
         DontDestroyOnLoad(gameObject);
     }
 
-
     private void Start()
     {
         LoadGame();
@@ -130,7 +129,6 @@ public class SaveManager : MonoBehaviour
     }
 
     //---HELPERS---
-    [ContextMenu("Borrar Save")]
     public void DeleteSave()
     {
         if (File.Exists(SaveFilePath))

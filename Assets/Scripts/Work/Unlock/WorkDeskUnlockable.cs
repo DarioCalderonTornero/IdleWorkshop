@@ -30,10 +30,6 @@ public class WorkDeskUnlockable : MonoBehaviour
 
     public System.Action<WorkDeskUnlockable> OnUnlocked;
 
-    [Header("Material")]
-    [SerializeField] private ItemMaterial material = ItemMaterial.Cloth;
-    public ItemMaterial Material => material;
-
     void Awake()
     {
         if (unlockedByDefault)

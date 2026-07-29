@@ -9,12 +9,6 @@ public enum ItemRarity
     Legendary
 }
 
-public enum ItemMaterial
-{
-    Cloth,
-    Wood
-}
-
 [CreateAssetMenu(fileName = "Item_", menuName = "Restaurador/Item Definition")]
 public class ItemDefinition : ScriptableObject
 {
@@ -31,9 +25,6 @@ public class ItemDefinition : ScriptableObject
 
     [Header("Rareza")]
     public ItemRarity rarity = ItemRarity.Common;
-
-    [Header("Material")]
-    public ItemMaterial material = ItemMaterial.Cloth;
 
     [Header("Restauración")]
     public float baseRepairTime = 5f;

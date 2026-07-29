@@ -15,20 +15,6 @@ public class WorkStation : MonoBehaviour
     [Header("Punto de entrega al cliente")]
     [SerializeField] private Transform receptionItemPoint;
 
-    [Header("Material de la sección")]
-    [SerializeField] private ItemMaterial material = ItemMaterial.Cloth;
-    public ItemMaterial Material => material;
-
-    [Header("Desbloqueo sección madera")]
-    [SerializeField] private double woodSectionCost = 1000;
-    [SerializeField] private int requiredClothLevel = 10;
-    [Tooltip("Primera mesa de madera, se desbloquea sola al pagar")]
-    [SerializeField] private WorkDeskUnlockable firstWoodDesk;
-
-    [Header("Visual bloqueado (opcional)")]
-    [Tooltip("GameObject con el texto 'Cerrado' u otra indicación visual sobre la sección de madera. Se desactiva solo al desbloquear.")]
-    [SerializeField] private GameObject lockedVisual;
-
     [Header("Identificador")]
     private int stationId;
     public int StationId => stationId;
@@ -40,25 +26,11 @@ public class WorkStation : MonoBehaviour
     private ItemDefinition _currentItemDef;
     private CustomerManager _customerManager;
     private readonly List<WorkTable> _unlockedDesks = new();
-    private bool _isWoodUnlocked = false;
 
     // ── Propiedades públicas ─────────────────────────────────────────
     public bool IsBusy => _isBusy;
     public WorkTable ReceptionDesk => receptionDesk;
     public Transform ReceptionItemPoint => receptionItemPoint;
-    public bool IsWoodUnlocked => _isWoodUnlocked;
-    public double WoodSectionCost => woodSectionCost;
-
-    public event System.Action OnWoodSectionUnlocked;
-
-    public bool IsMaterialUnlocked(ItemMaterial material) =>
-        material == ItemMaterial.Cloth || _isWoodUnlocked;
-
-    public bool WoodRequirementMet =>
-        !_isWoodUnlocked && GetTotalDeskLevel(ItemMaterial.Cloth) >= requiredClothLevel;
-
-    public bool CanUnlockWoodSection =>
-        WoodRequirementMet && EconomyManager.Instance.CanAfford(woodSectionCost);
 
     // ── Unity ────────────────────────────────────────────────────────
     private void Awake()
@@ -67,14 +39,6 @@ public class WorkStation : MonoBehaviour
 
         if (worker != null)
             worker.Init(this);
-
-        // Esta WorkStation es fija en la escena (no se instancia dinámicamente),
-        // así que se registra a sí misma con id 0 en vez de esperar a que
-        // WorkStationUnlocker la inicialice.
-        Init(0);
-
-        if (lockedVisual != null)
-            lockedVisual.SetActive(!_isWoodUnlocked);
 
         // Registra las mesas ya desbloqueadas por defecto
         // y suscribe el evento de las bloqueadas
@@ -85,41 +49,8 @@ public class WorkStation : MonoBehaviour
             else
                 desk.OnUnlocked += RegisterDesk;
         }
-    }
 
-    private void Update()
-    {
-        if (_isWoodUnlocked) return;
-        if (CanUnlockWoodSection)
-            UnlockWoodSection();
-    }
-
-    private void UnlockWoodSection()
-    {
-        EconomyManager.Instance.SpendCoins(woodSectionCost);
-        _isWoodUnlocked = true;
-
-        if (firstWoodDesk != null && !firstWoodDesk.IsUnlocked)
-            firstWoodDesk.Unlock();
-
-        if (lockedVisual != null)
-            lockedVisual.SetActive(false);
-
-        OnWoodSectionUnlocked?.Invoke();
-    }
-
-    public int GetTotalDeskLevel(ItemMaterial material)
-    {
-        int total = 0;
-        foreach (var desk in workDesks)
-        {
-            if (!desk.IsUnlocked || desk.Material != material) continue;
-
-            WorkDeskUpgradeable upgradeable = desk.GetComponent<WorkDeskUpgradeable>();
-            if (upgradeable != null)
-                total += upgradeable.CurrentLevel;
-        }
-        return total;
+        //WorkStationRegistry.Instance.Register(this);    
     }
 
     // ── Registro de mesas ────────────────────────────────────────────
@@ -135,20 +66,7 @@ public class WorkStation : MonoBehaviour
 
     public List<WorkTable> GetUnlockedDesks() => _unlockedDesks;
 
-    /// <summary>Mesas desbloqueadas de un material concreto (usado por el Worker).</summary>
-    public List<WorkTable> GetUnlockedDesks(ItemMaterial material)
-    {
-        List<WorkTable> result = new List<WorkTable>();
-        foreach (var desk in workDesks)
-        {
-            if (!desk.IsUnlocked || desk.Material != material) continue;
-            WorkTable table = desk.GetComponent<WorkTable>();
-            if (table != null) result.Add(table);
-        }
-        return result;
-    }
-
-    // Devuelve la siguiente mesa bloqueada (para el botón de desbloqueo individual de mesa)
+    // Devuelve la siguiente mesa bloqueada (para el botón de desbloqueo)
     public WorkDeskUnlockable GetNextLockedDesk()
     {
         foreach (var desk in workDesks)
@@ -172,13 +90,15 @@ public class WorkStation : MonoBehaviour
         _currentItemDef = null;
     }
 
+    
     public WorkStationSaveData GetSaveData()
     {
-        WorkStationSaveData workStationSaveData = new WorkStationSaveData();
+        WorkStationSaveData workStationSaveData = new WorkStationSaveData();   
 
         workStationSaveData.stationId = stationId;
 
         WorkerUpgradeable workerUpgradeable = worker.GetComponent<WorkerUpgradeable>();
+
         workStationSaveData.workerLevel = workerUpgradeable != null ? workerUpgradeable.CurrentLevel : 0;
 
         for (int i = 0; i < workDesks.Count; i++)
@@ -198,10 +118,12 @@ public class WorkStation : MonoBehaviour
 
     public void LoadSaveData(WorkStationSaveData data)
     {
+        // Restaurar nivel del worker
         WorkerUpgradeable workerUpgradeable = worker.GetComponent<WorkerUpgradeable>();
         if (workerUpgradeable != null)
             workerUpgradeable.LoadLevel(data.workerLevel);
 
+        // Restaurar estado de cada mesa
         for (int i = 0; i < workDesks.Count && i < data.desks.Count; i++)
         {
             DeskSaveData deskData = data.desks[i];
@@ -227,4 +149,5 @@ public class WorkStation : MonoBehaviour
         isInitialized = true;
         WorkStationRegistry.Instance.Register(this);
     }
+
 }
