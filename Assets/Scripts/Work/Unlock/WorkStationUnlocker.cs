@@ -6,16 +6,29 @@ public class WorkStationUnlocker : MonoBehaviour
 {
     public static WorkStationUnlocker Instance { get; private set; }
 
-    //Events
     public event Action OnWorkStationUnlocked;
 
-    [SerializeField] private List <WorkStationData> workStationsData;
+    [SerializeField] private List<WorkStationData> workStationsData;
     private int nextIndex = 0;
 
-    public bool HasNext => nextIndex < workStationsData.Count;
-    public double NextCost => HasNext ? workStationsData[nextIndex].cost : 0;
+    // El taller inicial ocupa el stationId 0 fuera de estas listas,
+    // así que el stationId N corresponde al índice (N - 1) de las listas.
+    private int ListIndex(int stationId) => stationId - 1;
+
+    public bool HasNext => ListIndex(nextIndex) < workStationsData.Count;
+    public double NextCost => HasNext ? workStationsData[ListIndex(nextIndex)].cost : 0;
 
     [SerializeField] private List<Transform> workStationSpawnPoints;
+
+    [Header("Taller inicial (ya presente en la escena)")]
+    [SerializeField] private WorkStation initialWorkStation;
+
+    private WorkStation currentWorkStation;
+
+    public bool CanUnlockNext =>
+        HasNext &&
+        EconomyManager.Instance.CanAfford(NextCost) &&
+        (currentWorkStation == null || currentWorkStation.AllDesksUnlocked());
 
     private void Awake()
     {
@@ -31,13 +44,26 @@ public class WorkStationUnlocker : MonoBehaviour
         {
             Debug.LogError($"[WorkStationUnlocker] Desincronización: {workStationsData.Count} WorkStationData vs {workStationSpawnPoints.Count} SpawnPoints.");
         }
+
+        if (initialWorkStation != null)
+        {
+            initialWorkStation.Init(0);
+            nextIndex = 1;
+            currentWorkStation = initialWorkStation;
+        }
+        else
+        {
+            Debug.LogError("[WorkStationUnlocker] No se ha asignado el taller inicial en el Inspector.");
+        }
     }
 
     public void UnlockNextWorkStation()
     {
-        if (!HasNext || !EconomyManager.Instance.CanAfford(NextCost)) return;
+        if (!CanUnlockNext) return;
 
-        GameObject go = Instantiate(workStationsData[nextIndex].prefab, workStationSpawnPoints[nextIndex].position, Quaternion.identity);
+        int listIndex = ListIndex(nextIndex);
+
+        GameObject go = Instantiate(workStationsData[listIndex].prefab, workStationSpawnPoints[listIndex].position, Quaternion.identity);
         WorkStation workStation = go.GetComponent<WorkStation>();
         if (workStation == null)
         {
@@ -47,33 +73,31 @@ public class WorkStationUnlocker : MonoBehaviour
         }
 
         workStation.Init(nextIndex);
-
         EconomyManager.Instance.SpendCoins(NextCost);
         CustomerManager.Instance.RegisterWorkStation(workStation);
+        currentWorkStation = workStation;
         nextIndex++;
         OnWorkStationUnlocked?.Invoke();
     }
 
-    /// <summary>
-    /// Instancia un taller al cargar la partida guardada.
-    /// No gasta monedas ni dispara OnWorkStationUnlocked.
-    /// </summary>
     public void RestoreWorkStation(WorkStationSaveData data)
     {
-        if (data.stationId >= workStationsData.Count)
+        int listIndex = ListIndex(data.stationId);
+
+        if (listIndex >= workStationsData.Count)
         {
             Debug.LogError($"[WorkStationUnlocker] No hay WorkStationData para el ID {data.stationId}");
             return;
         }
-        if (data.stationId >= workStationSpawnPoints.Count)
+        if (listIndex >= workStationSpawnPoints.Count)
         {
             Debug.LogError($"[WorkStationUnlocker] No hay SpawnPoint para el ID {data.stationId}");
             return;
         }
 
         GameObject go = Instantiate(
-            workStationsData[data.stationId].prefab,
-            workStationSpawnPoints[data.stationId].position,
+            workStationsData[listIndex].prefab,
+            workStationSpawnPoints[listIndex].position,
             Quaternion.identity);
         WorkStation workStation = go.GetComponent<WorkStation>();
         if (workStation == null)
@@ -84,11 +108,13 @@ public class WorkStationUnlocker : MonoBehaviour
         }
 
         workStation.Init(data.stationId);
-
         CustomerManager.Instance.RegisterWorkStation(workStation);
         workStation.LoadSaveData(data);
 
         if (data.stationId >= nextIndex)
+        {
             nextIndex = data.stationId + 1;
+            currentWorkStation = workStation;
+        }
     }
 }

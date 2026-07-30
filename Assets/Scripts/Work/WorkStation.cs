@@ -39,9 +39,15 @@ public class WorkStation : MonoBehaviour
 
         if (worker != null)
             worker.Init(this);
+    }
 
+    private void Start()
+    {
         // Registra las mesas ya desbloqueadas por defecto
-        // y suscribe el evento de las bloqueadas
+        // y suscribe el evento de las bloqueadas.
+        // En Start() para garantizar que WorkDeskUnlockable.Awake()
+        // ya ha establecido IsUnlocked (el orden de Awake entre
+        // objetos hermanos no está garantizado por Unity).
         foreach (var desk in workDesks)
         {
             if (desk.IsUnlocked)
@@ -49,8 +55,6 @@ public class WorkStation : MonoBehaviour
             else
                 desk.OnUnlocked += RegisterDesk;
         }
-
-        //WorkStationRegistry.Instance.Register(this);    
     }
 
     // ── Registro de mesas ────────────────────────────────────────────
@@ -135,6 +139,15 @@ public class WorkStation : MonoBehaviour
             if (deskUpgradeable != null)
                 deskUpgradeable.LoadLevel(deskData.level);
         }
+    }
+
+    public bool AllDesksUnlocked()
+    {
+        foreach (var desk in workDesks)
+        {
+            if (!desk.IsUnlocked) return false;
+        }
+        return true;
     }
 
     public void Init(int id)
