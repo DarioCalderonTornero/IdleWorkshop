@@ -1,14 +1,11 @@
-﻿using UnityEngine;
+﻿using System.Collections;
+using UnityEngine;
 
-/// <summary>
-/// Controlador de cámara 2D para juego idle.
-/// Se suscribe a InputManager en vez de acceder al hardware directamente.
-/// Permite mover la cámara arrastrando (ratón o dedo) dentro de unos límites definidos.
-/// Incluye inercia suave al soltar.
-/// </summary>
 [RequireComponent(typeof(Camera))]
 public class CameraController : MonoBehaviour
 {
+    public static CameraController Instance { get; private set; }
+
     [Header("Límites del mundo")]
     [SerializeField] private float xMin = -10f;
     [SerializeField] private float xMax = 10f;
@@ -22,23 +19,26 @@ public class CameraController : MonoBehaviour
     [SerializeField] private bool useInertia = true;
     [SerializeField] private float inertiaFriction = 8f;
 
-    // ── Estado interno ──────────────────────────────────────────────
+    [Header("Enfoque de habitación")]
+    [SerializeField] private float focusDuration = 0.5f;
+
     private Camera _cam;
     private bool _isDragging;
+    private bool _isLocked;
     private Vector3 _dragOriginWorld;
     private Vector2 _currentScreenPos;
     private Vector2 _velocity;
+    private Coroutine _focusCoroutine;
 
-    // ── Unity ───────────────────────────────────────────────────────
     private void Awake()
     {
+        Instance = this;
         _cam = GetComponent<Camera>();
     }
 
     private void OnEnable()
     {
         if (InputManager.Instance == null) return;
-
         InputManager.Instance.OnDragStarted += HandleDragStarted;
         InputManager.Instance.OnDragEnded += HandleDragEnded;
         InputManager.Instance.OnPointerPosition += HandlePointerPosition;
@@ -47,7 +47,6 @@ public class CameraController : MonoBehaviour
     private void OnDisable()
     {
         if (InputManager.Instance == null) return;
-
         InputManager.Instance.OnDragStarted -= HandleDragStarted;
         InputManager.Instance.OnDragEnded -= HandleDragEnded;
         InputManager.Instance.OnPointerPosition -= HandlePointerPosition;
@@ -55,6 +54,8 @@ public class CameraController : MonoBehaviour
 
     private void Update()
     {
+        if (_isLocked) return;
+
         if (_isDragging)
             ApplyDrag();
         else if (useInertia)
@@ -63,9 +64,9 @@ public class CameraController : MonoBehaviour
         ClampPosition();
     }
 
-    // ── Callbacks de InputManager ────────────────────────────────────
     private void HandleDragStarted()
     {
+        if (_isLocked) return;
         _isDragging = true;
         _velocity = Vector2.zero;
         _dragOriginWorld = GetWorldPoint(_currentScreenPos);
@@ -81,7 +82,6 @@ public class CameraController : MonoBehaviour
         _currentScreenPos = screenPos;
     }
 
-    // ── Drag ─────────────────────────────────────────────────────────
     private void ApplyDrag()
     {
         Vector3 currentWorld = GetWorldPoint(_currentScreenPos);
@@ -93,7 +93,6 @@ public class CameraController : MonoBehaviour
         _dragOriginWorld = GetWorldPoint(_currentScreenPos);
     }
 
-    // ── Inercia ──────────────────────────────────────────────────────
     private void ApplyInertia()
     {
         if (_velocity.sqrMagnitude < 0.01f)
@@ -106,7 +105,6 @@ public class CameraController : MonoBehaviour
         _velocity = Vector2.Lerp(_velocity, Vector2.zero, inertiaFriction * Time.deltaTime);
     }
 
-    // ── Límites ───────────────────────────────────────────────────────
     private void ClampPosition()
     {
         float halfH = _cam.orthographicSize;
@@ -118,7 +116,6 @@ public class CameraController : MonoBehaviour
         transform.position = new Vector3(clampedX, clampedY, transform.position.z);
     }
 
-    // ── Utilidades ────────────────────────────────────────────────────
     private Vector3 GetWorldPoint(Vector2 screenPos)
     {
         Vector3 pos = screenPos;
@@ -126,7 +123,41 @@ public class CameraController : MonoBehaviour
         return _cam.ScreenToWorldPoint(pos);
     }
 
-    // ── Gizmos ───────────────────────────────────────────────────────
+    // ── Foco de habitación ──────────────────────────────────────────
+    public void FocusOn(Vector3 targetPosition)
+    {
+        _isLocked = true;
+        _isDragging = false;
+        _velocity = Vector2.zero;
+
+        if (_focusCoroutine != null) StopCoroutine(_focusCoroutine);
+        _focusCoroutine = StartCoroutine(FocusRoutine(targetPosition));
+    }
+
+    public void Unlock()
+    {
+        _isLocked = false;
+    }
+
+    private IEnumerator FocusRoutine(Vector3 targetPosition)
+    {
+        Vector3 start = transform.position;
+        Vector3 target = new Vector3(targetPosition.x, targetPosition.y, transform.position.z);
+        float elapsed = 0f;
+
+        while (elapsed < focusDuration)
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.SmoothStep(0f, 1f, elapsed / focusDuration);
+            transform.position = Vector3.Lerp(start, target, t);
+            ClampPosition();
+            yield return null;
+        }
+
+        transform.position = target;
+        ClampPosition();
+    }
+
 #if UNITY_EDITOR
     private void OnDrawGizmosSelected()
     {

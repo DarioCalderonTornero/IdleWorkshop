@@ -39,6 +39,8 @@ public class UpgradePanelUI : MonoBehaviour
 
     private WorkDeskUnlockable currentUnlockable;
 
+    public RectTransform PanelRect => panelRect;
+
     void Awake()
     {
         if (Instance != null) { Destroy(gameObject); return; }
@@ -141,6 +143,7 @@ public class UpgradePanelUI : MonoBehaviour
     {
         // Solo comprueba si el panel está completamente visible
         if (state != PanelState.Visible) return;
+        if (RoomUpgradePanelUI.Instance != null && RoomUpgradePanelUI.Instance.IsVisible) return;
 
         bool clicked = false;
         Vector2 screenPos = Vector2.zero;

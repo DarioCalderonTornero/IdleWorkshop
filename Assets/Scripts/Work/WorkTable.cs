@@ -4,7 +4,6 @@ public class WorkTable : MonoBehaviour
 {
     [Tooltip("Punto donde el jugador se para mientras trabaja")]
     [SerializeField] private Transform playerSlot;
-
     [Tooltip("Punto encima de la mesa donde se deposita el objeto")]
     [SerializeField] private Transform itemSlot;
 
@@ -12,37 +11,49 @@ public class WorkTable : MonoBehaviour
     [SerializeField] private float baseTimeMultiplier = 1f;
     [SerializeField] private float baseRewardMultiplier = 1f;
 
-    private float _currentTimeMultiplier;
-    private float _currentRewardMultiplier;
-    private float _currentStarChance;
+    // Multiplicador propio de nivel (ya existía, viene de WorkDeskUpgradeable)
+    private float _levelTimeMultiplier;
+    private float _levelRewardMultiplier;
 
-    // Referencia al nivel actual para calcular la probabilidad
+    // Bonus de zona, aportado por los DecorativeUpgradeable de la misma WorkStation
+    private float _zoneTimeMultiplier = 1f;
+    private float _zoneRewardMultiplier = 1f;
+
+    private float _currentStarChance;
     private int _currentLevel = 1;
     private UpgradeData _upgradeData;
 
     void Awake()
     {
-        _currentTimeMultiplier = baseTimeMultiplier;
-        _currentRewardMultiplier = baseRewardMultiplier;
+        _levelTimeMultiplier = baseTimeMultiplier;
+        _levelRewardMultiplier = baseRewardMultiplier;
         _currentStarChance = 0f;
     }
 
     public Vector3 PlayerSlotPos => playerSlot.position;
     public Vector3 ItemSlotPos => itemSlot.position;
 
+    // Combina nivel propio + bonus de zona en el cálculo final
     public float GetProcessTime(ItemDefinition item)
-        => Mathf.Max(0.1f, item.baseRepairTime * _currentTimeMultiplier);
+        => Mathf.Max(0.1f, item.baseRepairTime * _levelTimeMultiplier * _zoneTimeMultiplier);
 
     public int GetReward(ItemDefinition item)
-        => Mathf.RoundToInt(item.rewardCoins * _currentRewardMultiplier);
+        => Mathf.RoundToInt(item.rewardCoins * _levelRewardMultiplier * _zoneRewardMultiplier);
 
+    // Llamado desde WorkDeskUpgradeable al mejorar (nivel propio de la mesa)
     public void ApplyMultipliers(float timeMultiplier, float rewardMultiplier)
     {
-        _currentTimeMultiplier = timeMultiplier;
-        _currentRewardMultiplier = rewardMultiplier;
+        _levelTimeMultiplier = timeMultiplier;
+        _levelRewardMultiplier = rewardMultiplier;
     }
 
-    // Llamado desde WorkDeskUpgradeable al mejorar
+    // Llamado desde WorkStation al recalcular el bonus decorativo de la zona
+    public void ApplyZoneMultipliers(float zoneTimeMultiplier, float zoneRewardMultiplier)
+    {
+        _zoneTimeMultiplier = zoneTimeMultiplier;
+        _zoneRewardMultiplier = zoneRewardMultiplier;
+    }
+
     public void ApplyUpgradeData(UpgradeData data, int level)
     {
         _upgradeData = data;
@@ -50,7 +61,6 @@ public class WorkTable : MonoBehaviour
         _currentStarChance = data.GetStarChanceForLevel(level);
     }
 
-    // Devuelve true si se consigue estrella en esta mesa
     public bool RollStar()
     {
         if (_currentStarChance <= 0f) return false;

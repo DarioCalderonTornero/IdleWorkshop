@@ -2,8 +2,10 @@ using UnityEngine;
 
 /// <summary>
 /// Centraliza toda la lógica de tap en la escena.
-/// Se suscribe a InputManager.OnTap, hace un raycast y decide qué hacer
-/// según el componente que encuentre en el GameObject tocado.
+/// En vez de depender de la action "Tap" del Input Actions asset (que compite
+/// con la action "Drag" por el mismo control y da lugar a comportamiento
+/// inconsistente), decide por sí mismo si un gesto fue un toque o un arrastre
+/// comparando la posición al iniciar y al soltar el press.
 /// </summary>
 public class TapHandler : MonoBehaviour
 {
@@ -12,6 +14,14 @@ public class TapHandler : MonoBehaviour
     [Header("Raycast")]
     [SerializeField] private Camera mainCamera;
     [SerializeField] private LayerMask tapLayers;
+
+    [Header("Detección de tap")]
+    [Tooltip("Distancia máxima en píxeles de pantalla para considerar el gesto un tap y no un arrastre.")]
+    [SerializeField] private float maxTapDistance = 20f;
+
+    private bool _isPressed;
+    private Vector2 _pressStartPos;
+    private Vector2 _currentPos;
 
     private void Awake()
     {
@@ -30,21 +40,49 @@ public class TapHandler : MonoBehaviour
 
     private void Start()
     {
-        InputManager.Instance.OnTap += HandleTap;
+        InputManager.Instance.OnDragStarted += HandlePressStarted;
+        InputManager.Instance.OnDragEnded += HandlePressEnded;
+        InputManager.Instance.OnPointerPosition += HandlePointerPosition;
     }
 
     private void OnDestroy()
     {
-        InputManager.Instance.OnTap -= HandleTap;
+        if (InputManager.Instance == null) return;
+        InputManager.Instance.OnDragStarted -= HandlePressStarted;
+        InputManager.Instance.OnDragEnded -= HandlePressEnded;
+        InputManager.Instance.OnPointerPosition -= HandlePointerPosition;
     }
 
-    //Tap
-    private void HandleTap(Vector2 screenPosition)
+    private void HandlePointerPosition(Vector2 pos)
+    {
+        _currentPos = pos;
+    }
+
+    private void HandlePressStarted()
+    {
+        _isPressed = true;
+        _pressStartPos = _currentPos;
+    }
+
+    private void HandlePressEnded()
+    {
+        if (!_isPressed) return;
+        _isPressed = false;
+
+        float distance = Vector2.Distance(_pressStartPos, _currentPos);
+        if (distance <= maxTapDistance)
+        {
+            ProcessTap(_currentPos);
+        }
+    }
+
+    private void ProcessTap(Vector2 screenPosition)
     {
         if (BestiaryUI.IsOpen) return;
-        if (UpgradePanelUI.Instance.IsVisible) return;
+        if (RoomUpgradePanelUI.Instance != null && RoomUpgradePanelUI.Instance.IsVisible) return;
+        if (RoomUpgradePanelUI.JustClosedThisFrame) return;
 
-        // Boost de tap a todos los workers activos
+        // Boost de tap a todos los workers activos — mecánica core, independiente de la UI de mejoras.
         WorkerRegistry.Instance?.ApplyTapBoostToAll(0.1f);
 
         Vector2 worldPos = mainCamera.ScreenToWorldPoint(screenPosition);
@@ -52,31 +90,11 @@ public class TapHandler : MonoBehaviour
 
         if (hit.collider == null) return;
 
-        GameObject tapped = hit.collider.gameObject;
+        WorkStation station = hit.collider.GetComponent<WorkStation>()
+                            ?? hit.collider.GetComponentInParent<WorkStation>();
+        if (station == null) return;
 
-        WorkerUpgradeable workerUpgradeable = tapped.GetComponent<WorkerUpgradeable>();
-        if (workerUpgradeable != null)
-        {
-            UpgradePanelUI.Instance.Show(workerUpgradeable);
-            return;
-        }
-
-        WorkDeskUnlockable unlockable = tapped.GetComponent<WorkDeskUnlockable>();
-        if (unlockable != null)
-        {
-            if (unlockable.IsUnlocked)
-            {
-                IUpgradeable upgradeable = tapped.GetComponent<IUpgradeable>();
-                if (upgradeable != null)
-                    UpgradePanelUI.Instance.Show(upgradeable);
-            }
-            else
-            {
-                WorkStation station = tapped.GetComponentInParent<WorkStation>();
-                if (station != null && station.GetNextLockedDesk() == unlockable)
-                    UpgradePanelUI.Instance.ShowUnlock(unlockable);
-            }
-            return;
-        }
+        CameraController.Instance?.FocusOn(station.CameraFocusPosition);
+        RoomUpgradePanelUI.Instance?.Show(station);
     }
 }
