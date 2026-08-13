@@ -118,6 +118,51 @@ public partial class @IdleInputActions: IInputActionCollection2, IDisposable
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Zoom"",
+                    ""type"": ""Value"",
+                    ""id"": ""65f9105a-1157-4f6d-9e05-479a0c39f425"",
+                    ""expectedControlType"": ""Axis"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": true
+                },
+                {
+                    ""name"": ""Touch0Position"",
+                    ""type"": ""Value"",
+                    ""id"": ""def251f7-0800-4b76-a030-5a330e97e3fa"",
+                    ""expectedControlType"": ""Vector2"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": true
+                },
+                {
+                    ""name"": ""Touch0Contact"",
+                    ""type"": ""Button"",
+                    ""id"": ""f53183b5-639b-4de5-a047-cde68413ebb9"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Touch1Position"",
+                    ""type"": ""Value"",
+                    ""id"": ""be647172-99e9-4b7a-ad89-e18db4e56eb9"",
+                    ""expectedControlType"": ""Vector2"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": true
+                },
+                {
+                    ""name"": ""Touch1Contact"",
+                    ""type"": ""Button"",
+                    ""id"": ""c2e25046-6602-4f6a-8800-86f3e2260ffe"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
                 }
             ],
             ""bindings"": [
@@ -175,6 +220,61 @@ public partial class @IdleInputActions: IInputActionCollection2, IDisposable
                     ""action"": ""Tap"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""cb3654c3-ef3e-469e-bd06-93f42b9589bb"",
+                    ""path"": ""<Mouse>/scroll/y"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Zoom"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""92bb5a74-afa2-41b5-9d94-8b8f98addee8"",
+                    ""path"": ""<Touchscreen>/touch0/position"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Touch0Position"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""9f77139a-490a-40c7-ad8d-6984174f67af"",
+                    ""path"": ""<Touchscreen>/touch0/press"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Touch0Contact"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""4f1179a1-df1b-49ea-88c7-33fab98a8534"",
+                    ""path"": ""<Touchscreen>/touch1/position"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Touch1Position"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""7d59df2a-ce5a-443f-b532-eec0252dd2c2"",
+                    ""path"": ""<Touchscreen>/touch1/press"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Touch1Contact"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
                 }
             ]
         }
@@ -186,6 +286,11 @@ public partial class @IdleInputActions: IInputActionCollection2, IDisposable
         m_Camera_Drag = m_Camera.FindAction("Drag", throwIfNotFound: true);
         m_Camera_PointerPosition = m_Camera.FindAction("PointerPosition", throwIfNotFound: true);
         m_Camera_Tap = m_Camera.FindAction("Tap", throwIfNotFound: true);
+        m_Camera_Zoom = m_Camera.FindAction("Zoom", throwIfNotFound: true);
+        m_Camera_Touch0Position = m_Camera.FindAction("Touch0Position", throwIfNotFound: true);
+        m_Camera_Touch0Contact = m_Camera.FindAction("Touch0Contact", throwIfNotFound: true);
+        m_Camera_Touch1Position = m_Camera.FindAction("Touch1Position", throwIfNotFound: true);
+        m_Camera_Touch1Contact = m_Camera.FindAction("Touch1Contact", throwIfNotFound: true);
     }
 
     ~@IdleInputActions()
@@ -269,6 +374,11 @@ public partial class @IdleInputActions: IInputActionCollection2, IDisposable
     private readonly InputAction m_Camera_Drag;
     private readonly InputAction m_Camera_PointerPosition;
     private readonly InputAction m_Camera_Tap;
+    private readonly InputAction m_Camera_Zoom;
+    private readonly InputAction m_Camera_Touch0Position;
+    private readonly InputAction m_Camera_Touch0Contact;
+    private readonly InputAction m_Camera_Touch1Position;
+    private readonly InputAction m_Camera_Touch1Contact;
     /// <summary>
     /// Provides access to input actions defined in input action map "Camera".
     /// </summary>
@@ -292,6 +402,26 @@ public partial class @IdleInputActions: IInputActionCollection2, IDisposable
         /// Provides access to the underlying input action "Camera/Tap".
         /// </summary>
         public InputAction @Tap => m_Wrapper.m_Camera_Tap;
+        /// <summary>
+        /// Provides access to the underlying input action "Camera/Zoom".
+        /// </summary>
+        public InputAction @Zoom => m_Wrapper.m_Camera_Zoom;
+        /// <summary>
+        /// Provides access to the underlying input action "Camera/Touch0Position".
+        /// </summary>
+        public InputAction @Touch0Position => m_Wrapper.m_Camera_Touch0Position;
+        /// <summary>
+        /// Provides access to the underlying input action "Camera/Touch0Contact".
+        /// </summary>
+        public InputAction @Touch0Contact => m_Wrapper.m_Camera_Touch0Contact;
+        /// <summary>
+        /// Provides access to the underlying input action "Camera/Touch1Position".
+        /// </summary>
+        public InputAction @Touch1Position => m_Wrapper.m_Camera_Touch1Position;
+        /// <summary>
+        /// Provides access to the underlying input action "Camera/Touch1Contact".
+        /// </summary>
+        public InputAction @Touch1Contact => m_Wrapper.m_Camera_Touch1Contact;
         /// <summary>
         /// Provides access to the underlying input action map instance.
         /// </summary>
@@ -327,6 +457,21 @@ public partial class @IdleInputActions: IInputActionCollection2, IDisposable
             @Tap.started += instance.OnTap;
             @Tap.performed += instance.OnTap;
             @Tap.canceled += instance.OnTap;
+            @Zoom.started += instance.OnZoom;
+            @Zoom.performed += instance.OnZoom;
+            @Zoom.canceled += instance.OnZoom;
+            @Touch0Position.started += instance.OnTouch0Position;
+            @Touch0Position.performed += instance.OnTouch0Position;
+            @Touch0Position.canceled += instance.OnTouch0Position;
+            @Touch0Contact.started += instance.OnTouch0Contact;
+            @Touch0Contact.performed += instance.OnTouch0Contact;
+            @Touch0Contact.canceled += instance.OnTouch0Contact;
+            @Touch1Position.started += instance.OnTouch1Position;
+            @Touch1Position.performed += instance.OnTouch1Position;
+            @Touch1Position.canceled += instance.OnTouch1Position;
+            @Touch1Contact.started += instance.OnTouch1Contact;
+            @Touch1Contact.performed += instance.OnTouch1Contact;
+            @Touch1Contact.canceled += instance.OnTouch1Contact;
         }
 
         /// <summary>
@@ -347,6 +492,21 @@ public partial class @IdleInputActions: IInputActionCollection2, IDisposable
             @Tap.started -= instance.OnTap;
             @Tap.performed -= instance.OnTap;
             @Tap.canceled -= instance.OnTap;
+            @Zoom.started -= instance.OnZoom;
+            @Zoom.performed -= instance.OnZoom;
+            @Zoom.canceled -= instance.OnZoom;
+            @Touch0Position.started -= instance.OnTouch0Position;
+            @Touch0Position.performed -= instance.OnTouch0Position;
+            @Touch0Position.canceled -= instance.OnTouch0Position;
+            @Touch0Contact.started -= instance.OnTouch0Contact;
+            @Touch0Contact.performed -= instance.OnTouch0Contact;
+            @Touch0Contact.canceled -= instance.OnTouch0Contact;
+            @Touch1Position.started -= instance.OnTouch1Position;
+            @Touch1Position.performed -= instance.OnTouch1Position;
+            @Touch1Position.canceled -= instance.OnTouch1Position;
+            @Touch1Contact.started -= instance.OnTouch1Contact;
+            @Touch1Contact.performed -= instance.OnTouch1Contact;
+            @Touch1Contact.canceled -= instance.OnTouch1Contact;
         }
 
         /// <summary>
@@ -408,5 +568,40 @@ public partial class @IdleInputActions: IInputActionCollection2, IDisposable
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnTap(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "Zoom" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnZoom(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "Touch0Position" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnTouch0Position(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "Touch0Contact" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnTouch0Contact(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "Touch1Position" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnTouch1Position(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "Touch1Contact" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnTouch1Contact(InputAction.CallbackContext context);
     }
 }

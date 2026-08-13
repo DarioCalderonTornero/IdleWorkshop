@@ -15,7 +15,14 @@ public class InputManager : MonoBehaviour
     public event Action<Vector2> OnPointerPosition;
 
 
-    
+    //---ZOOM---
+    public event Action<float, Vector2> OnZoom;
+
+    [Header("Pinch Tactil")]
+    [SerializeField] private float pinchSensivity;
+
+    private bool isPinched;
+    private float previousZoomDistance;
 
     //Tap Event
     public event Action<Vector2> OnTap;
@@ -47,6 +54,58 @@ public class InputManager : MonoBehaviour
         idleInputActions.Camera.Tap.performed += Tap_performed;
 
         idleInputActions.Camera.PointerPosition.performed += PointerPosition_performed;
+
+        //Zoom
+        idleInputActions.Camera.Zoom.performed += Zoom_performed;
+    }
+
+    private void Update()
+    {
+        HandlePinchZoom();
+    }
+
+    private void HandlePinchZoom()
+    {
+        bool touch0Active = idleInputActions.Camera.Touch0Contact.IsPressed();
+        bool touch1Active = idleInputActions.Camera.Touch1Contact.IsPressed();
+
+        if (!touch0Active || !touch1Active)
+        {
+            isPinched = false;
+            return;
+        }
+
+        Vector2 posA = idleInputActions.Camera.Touch0Position.ReadValue<Vector2>();
+        Vector2 posB = idleInputActions.Camera.Touch1Position.ReadValue<Vector2>();
+
+        float currentDistance = Vector2.Distance(posA, posB);
+
+        if (!isPinched)
+        {
+            isPinched = true;
+            previousZoomDistance = currentDistance;
+            return;
+        }
+
+        float distanceDelta = currentDistance - previousZoomDistance;
+        previousZoomDistance = currentDistance;
+
+        if (Mathf.Approximately(distanceDelta, 0.0f))
+            return;
+
+        Vector2 pivot = (posA + posB) * 0.5f;
+        OnZoom.Invoke(distanceDelta * pinchSensivity, pivot);
+    }
+
+    private void Zoom_performed(InputAction.CallbackContext obj)
+    {
+        float scrollDelta = obj.ReadValue<float>();
+        if (Mathf.Approximately(scrollDelta, 0))
+        {
+            return;
+        }
+
+        OnZoom?.Invoke(scrollDelta, currentPos);
     }
 
     private void PointerPosition_performed(InputAction.CallbackContext obj)
