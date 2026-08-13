@@ -23,3 +23,8 @@ MonoBehaviour:
   baseStarChance: 10
   starChanceIncreasePerLevel: 3
   maxStarChance: 70
+  evolutionStages:
+  - levelThreshold: 10
+    visual: {fileID: 21300000, guid: 3c35162453eda0f47bd009d214980327, type: 3}
+  - levelThreshold: 20
+    visual: {fileID: 21300000, guid: 25a4af78665da994d9e1d92f89cff5ae, type: 3}

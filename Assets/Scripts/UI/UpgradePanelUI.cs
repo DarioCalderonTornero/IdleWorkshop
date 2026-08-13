@@ -171,6 +171,9 @@ public class UpgradePanelUI : MonoBehaviour
 
     // ── UI ───────────────────────────────────────────────────────────
 
+    [Header("Barra de evolución")]
+    [SerializeField] private Image evolutionBarFill;
+
     void RefreshUI()
     {
         if (currentTarget == null) return;
@@ -183,12 +186,18 @@ public class UpgradePanelUI : MonoBehaviour
         levelText.text = $"Nivel {level}";
         descriptionText.text = data.description;
 
+        // Barra de progreso hacia la siguiente evolución
+        var (floor, ceiling) = data.GetCurrentStageRange(level);
+        float progress = ceiling > floor ? (float)(level - floor) / (ceiling - floor) : 1f;
+        if (evolutionBarFill != null)
+            evolutionBarFill.fillAmount = Mathf.Clamp01(progress);
+
         bool maxLevel = level >= data.maxLevel;
         upgradeButton.interactable = !maxLevel && currentTarget.CanUpgrade();
 
         upgradeCostText.text = maxLevel
-    ? "Nivel máximo"
-    : $"{CurrencyFormatter.Format(data.GetCostForLevel(level))}";
+            ? "Nivel máximo"
+            : $"{CurrencyFormatter.Format(data.GetCostForLevel(level))}";
     }
 
     void OnUpgradeClicked()

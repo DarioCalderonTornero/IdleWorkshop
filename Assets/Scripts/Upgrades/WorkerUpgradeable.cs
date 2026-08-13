@@ -8,8 +8,9 @@ public class WorkerUpgradeable : UpgradeableBase
 
     private Worker _worker;
 
-    void Awake()
+    protected override void Awake()
     {
+        base.Awake();
         _worker = GetComponentInChildren<Worker>();
 
         if (_worker == null)

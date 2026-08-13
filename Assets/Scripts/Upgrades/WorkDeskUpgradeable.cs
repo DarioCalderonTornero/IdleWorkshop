@@ -4,8 +4,9 @@ public class WorkDeskUpgradeable : UpgradeableBase
 {
     private WorkTable _workTable;
 
-    void Awake()
+    protected override void Awake()
     {
+        base.Awake();
         _workTable = GetComponent<WorkTable>();
         if (_workTable == null)
             Debug.LogWarning("[WorkDeskUpgradeable] No se encontró WorkTable.");
