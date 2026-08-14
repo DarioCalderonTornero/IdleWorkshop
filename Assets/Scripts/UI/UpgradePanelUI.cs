@@ -97,6 +97,7 @@ public class UpgradePanelUI : MonoBehaviour
             if (!unlockable.MeetsRequirements()) return;
             if (!EconomyManager.Instance.SpendCoins(unlockable.UnlockCost)) return;
             unlockable.Unlock();
+            RoomUpgradePanelUI.Instance?.RefreshButtons();
             Hide();
         });
 

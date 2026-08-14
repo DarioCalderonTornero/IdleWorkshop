@@ -3,8 +3,8 @@ using UnityEngine;
 
 /// <summary>
 /// Comportamiento de un cliente individual.
-/// La cola avanza 2 segundos después de que el cliente recoge el objeto reparado,
-/// sin esperar a que salga del mapa.
+/// El cliente entrega el objeto y se va de inmediato, sin esperar a que
+/// se complete ningún trabajo — la cola avanza en el momento de la entrega.
 /// </summary>
 public class Customer : MonoBehaviour
 {
@@ -18,17 +18,11 @@ public class Customer : MonoBehaviour
     [Tooltip("Duración de la animación del objeto cayendo a la mesa")]
     [SerializeField] private float dropDuration = 0.35f;
 
-    [Tooltip("Duración de la animación del objeto subiendo de vuelta a la cabeza")]
-    [SerializeField] private float pickupDuration = 0.35f;
-
-    [Tooltip("Segundos tras coger el objeto antes de que avance la cola")]
-    [SerializeField] private float queueAdvanceDelay = 2f;
-
     [Header("Salida")]
     [SerializeField] private float exitX = 12f;
 
     // ── Estado ─────────────────────────────────────────────────────
-    private enum State { FollowingPath, MovingToSlot, Dropping, Waiting, PickingUp, Leaving }
+    private enum State { FollowingPath, MovingToSlot, Dropping, Leaving }
     private State _state = State.FollowingPath;
 
     private CustomerManager _manager;
@@ -131,42 +125,35 @@ public class Customer : MonoBehaviour
             _state = State.Dropping;
             StartCoroutine(DropItemRoutine());
         }
-        else
-        {
-            _state = State.Waiting;
-        }
+        // Si no es el primero, simplemente espera en su sitio (MoveToSlot lo reubicará cuando avance la cola)
     }
 
-    // ── Dejar objeto en mesa ───────────────────────────────────────
+    // ── Dejar objeto y salir de inmediato ───────────────────────────
     private IEnumerator DropItemRoutine()
     {
-        if (_itemGO == null) yield break;
+        if (_itemGO == null)
+        {
+            FinishDelivery();
+            yield break;
+        }
+
+        // Espera hasta que la recepción tenga sitio libre
+        while (!_manager.ReceptionHasFreeSlot())
+            yield return null;
 
         _itemGO.transform.SetParent(null);
         yield return AnimateItem(_itemGO, _itemGO.transform.position, _dropTargetPos, dropDuration);
 
         _manager.OnItemPlacedOnDesk(_itemDef, _itemGO);
-        _state = State.Waiting;
+
+        FinishDelivery();
     }
 
-    // ── Recoger objeto reparado ────────────────────────────────────
-    private IEnumerator PickUpItemRoutine()
+    private void FinishDelivery()
     {
-        if (_itemGO == null) yield break;
-
-        Transform anchor = headAnchor != null ? headAnchor : transform;
-        Vector3 startPos = _itemGO.transform.position;
-
-        yield return AnimateItem(_itemGO, startPos, anchor.position, pickupDuration);
-
-        _itemGO.transform.SetParent(anchor);
-        _itemGO.transform.localPosition = Vector3.zero;
-
-        // La cola avanza inmediatamente (con pequeño delay de cortesía)
-        yield return new WaitForSeconds(queueAdvanceDelay);
+        // El cliente se va de inmediato: avanza la cola y sale del mapa,
+        // sin esperar a que el objeto se procese en el taller.
         _manager.OnCustomerLeaving(this);
-
-        // El cliente sigue su camino hacia la salida en paralelo
         _state = State.Leaving;
     }
 
@@ -186,15 +173,10 @@ public class Customer : MonoBehaviour
         _slotIndex = newIndex;
         _slotPos = newPos;
 
-        if (_state == State.Waiting)
-            _state = State.MovingToSlot;
-    }
-
-    public void BeServed()
-    {
-        if (_state != State.Waiting) return;
-        _state = State.PickingUp;
-        StartCoroutine(PickUpItemRoutine());
+        if (_state == State.MovingToSlot || _state == State.FollowingPath)
+        {
+            // ya en camino, la posición se actualizará sola
+        }
     }
 
     public ItemDefinition ItemDef => _itemDef;

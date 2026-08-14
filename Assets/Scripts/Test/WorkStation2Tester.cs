@@ -13,8 +13,8 @@ public class WorkStation2Tester : MonoBehaviour
             ItemDefinition itemDef = itemDatabase.GetRandom();
             if (itemDef == null || itemDef.itemPrefab == null) return;
 
-            GameObject itemGO = Instantiate(itemDef.itemPrefab, targetStation.ReceptionItemPoint.position, Quaternion.identity);
-            targetStation.RequestWork(itemGO, itemDef);
+            //GameObject itemGO = Instantiate(itemDef.itemPrefab, targetStation.ReceptionItemPoint.position, Quaternion.identity);
+            //targetStation.RequestWork(itemGO, itemDef);
         }
     }
 }

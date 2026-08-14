@@ -6,15 +6,15 @@ public class WorkerUpgradeable : UpgradeableBase
     [Tooltip("Incremento de velocidad de movimiento por nivel (ej: 0.1 = +10% por nivel)")]
     [SerializeField] private float moveSpeedMultiplierPerLevel = 0.1f;
 
-    private Worker _worker;
+    private WorkerBase _worker;
 
     protected override void Awake()
     {
         base.Awake();
-        _worker = GetComponentInChildren<Worker>();
 
+        _worker = GetComponentInChildren<WorkerBase>();
         if (_worker == null)
-            Debug.LogWarning("[WorkerUpgradeable] No se encontró Worker.");
+            Debug.LogWarning("[WorkerUpgradeable] No se encontró WorkerBase.");
     }
 
     protected override void OnUpgraded(int newLevel)
@@ -23,7 +23,6 @@ public class WorkerUpgradeable : UpgradeableBase
 
         float multiplier = 1f + (newLevel * moveSpeedMultiplierPerLevel);
         _worker.ApplyMoveSpeedMultiplier(multiplier);
-
         Debug.Log($"[WorkerUpgradeable] Nivel {newLevel} — velocidad ×{multiplier:F2}");
     }
 }

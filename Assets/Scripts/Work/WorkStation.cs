@@ -4,16 +4,10 @@ using UnityEngine;
 public class WorkStation : MonoBehaviour
 {
     [Header("Mesa de recepción")]
-    [SerializeField] private WorkTable receptionDesk;
+    [SerializeField] private ReceptionDesk receptionDesk;
 
     [Header("Mesas de trabajo en orden")]
     [SerializeField] private List<WorkDeskUnlockable> workDesks;
-
-    [Header("Worker")]
-    [SerializeField] private Worker worker;
-
-    [Header("Punto de entrega al cliente")]
-    [SerializeField] private Transform receptionItemPoint;
 
     [Header("Elementos mejorables (panel inferior)")]
     [SerializeField] private List<RoomUpgradeElement> upgradeElements;
@@ -31,24 +25,19 @@ public class WorkStation : MonoBehaviour
     private bool isInitialized = false;
 
     private bool _isBusy;
-    private ItemDefinition _currentItemDef;
-    private CustomerManager _customerManager;
     private readonly List<WorkTable> _unlockedDesks = new();
 
     public bool IsBusy => _isBusy;
-    public WorkTable ReceptionDesk => receptionDesk;
-    public Transform ReceptionItemPoint => receptionItemPoint;
-
-    private void Awake()
-    {
-        _customerManager = FindAnyObjectByType<CustomerManager>();
-
-        if (worker != null)
-            worker.Init(this);
-    }
+    public ReceptionDesk ReceptionDesk => receptionDesk;
 
     private void Start()
     {
+        Receptionist receptionist = receptionDesk.GetComponentInChildren<Receptionist>();
+        if (receptionist != null)
+            receptionist.Init(receptionDesk, this);
+        else
+            Debug.LogWarning("[WorkStation] No se encontró ningún Receptionist dentro de ReceptionDesk.");
+
         // En Start() para garantizar que WorkDeskUnlockable.Awake() ya ha
         // establecido IsUnlocked (el orden de Awake entre hermanos no está garantizado).
         foreach (var desk in workDesks)
@@ -66,6 +55,7 @@ public class WorkStation : MonoBehaviour
         }
     }
 
+    // ── Registro de mesas ────────────────────────────────────────────
     private void RegisterDesk(WorkDeskUnlockable unlockable)
     {
         WorkTable table = unlockable.GetComponent<WorkTable>();
@@ -90,6 +80,35 @@ public class WorkStation : MonoBehaviour
         foreach (var desk in workDesks)
             if (!desk.IsUnlocked) return false;
         return true;
+    }
+
+    /// <summary>
+    /// Devuelve la siguiente mesa desbloqueada después de "current", en el
+    /// orden definido por workDesks. Null si "current" es la última desbloqueada
+    /// (el objeto debe ir a la recepción en ese caso).
+    /// </summary>
+    public WorkTable GetNextUnlockedDesk(WorkTable current)
+    {
+        int currentIndex = -1;
+        for (int i = 0; i < workDesks.Count; i++)
+        {
+            WorkTable table = workDesks[i].GetComponent<WorkTable>();
+            if (table == current)
+            {
+                currentIndex = i;
+                break;
+            }
+        }
+
+        if (currentIndex == -1) return null;
+
+        for (int i = currentIndex + 1; i < workDesks.Count; i++)
+        {
+            if (!workDesks[i].IsUnlocked) continue;
+            return workDesks[i].GetComponent<WorkTable>();
+        }
+
+        return null;
     }
 
     // ── Bonus decorativo de zona ───────────────────────────────────────
@@ -120,28 +139,21 @@ public class WorkStation : MonoBehaviour
     }
 
     // ── API pública ──────────────────────────────────────────────────
-    public void RequestWork(GameObject itemGO, ItemDefinition itemDef)
-    {
-        if (_isBusy) return;
-        _isBusy = true;
-        _currentItemDef = itemDef;
-        worker.StartWork(itemGO, itemDef);
-    }
 
+    /// <summary>
+    /// Llamado por el worker de la última mesa al entregar en la caja final.
+    /// El cliente ya se fue al entregar el objeto en recepción, así que no
+    /// hay a quién avisar por ahora — el objeto simplemente completa su
+    /// recorrido. Punto de enganche para una futura cola de recogida.
+    /// </summary>
     public void OnWorkCompleted()
     {
-        _customerManager?.ServeNextCustomer(this);
-        _isBusy = false;
-        _currentItemDef = null;
     }
 
     public WorkStationSaveData GetSaveData()
     {
         WorkStationSaveData workStationSaveData = new WorkStationSaveData();
         workStationSaveData.stationId = stationId;
-
-        WorkerUpgradeable workerUpgradeable = worker.GetComponent<WorkerUpgradeable>();
-        workStationSaveData.workerLevel = workerUpgradeable != null ? workerUpgradeable.CurrentLevel : 0;
 
         for (int i = 0; i < workDesks.Count; i++)
         {
@@ -160,10 +172,6 @@ public class WorkStation : MonoBehaviour
 
     public void LoadSaveData(WorkStationSaveData data)
     {
-        WorkerUpgradeable workerUpgradeable = worker.GetComponent<WorkerUpgradeable>();
-        if (workerUpgradeable != null)
-            workerUpgradeable.LoadLevel(data.workerLevel);
-
         for (int i = 0; i < workDesks.Count && i < data.desks.Count; i++)
         {
             DeskSaveData deskData = data.desks[i];

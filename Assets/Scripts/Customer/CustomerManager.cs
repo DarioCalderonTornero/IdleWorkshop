@@ -4,8 +4,9 @@ using UnityEngine;
 
 /// <summary>
 /// Spawner y gestor de la cola de clientes.
-/// No conoce a ningún Worker directamente.
-/// Se comunica con las WorkStations disponibles para repartir trabajo.
+/// El cliente entrega el objeto en la ReceptionDesk y se va de inmediato,
+/// sin esperar a que el objeto se procese en el taller — el ciclo del
+/// cliente y el ciclo del objeto son independientes.
 /// </summary>
 public class CustomerManager : MonoBehaviour
 {
@@ -101,35 +102,39 @@ public class CustomerManager : MonoBehaviour
     // ── Callbacks desde Customer ─────────────────────────────────────
 
     /// <summary>
-    /// El cliente ha dejado el objeto en la mesa.
-    /// Busca la primera WorkStation libre y le manda el trabajo.
+    /// True si la recepción de la WorkStation disponible tiene sitio libre
+    /// para recibir un objeto nuevo. El Customer debe esperar mientras esto
+    /// sea false antes de animar la entrega.
+    /// </summary>
+    public bool ReceptionHasFreeSlot()
+    {
+        WorkStation station = GetAvailableStation();
+        return station != null && station.ReceptionDesk.HasFreeSlot;
+    }
+
+    /// <summary>
+    /// El cliente ha dejado el objeto. Se deposita en el slot de espera de
+    /// la ReceptionDesk — el Receptionist lo recogerá de ahí y lo llevará
+    /// hasta la primera mesa desbloqueada.
     /// </summary>
     public void OnItemPlacedOnDesk(ItemDefinition itemDef, GameObject itemGO)
     {
-        WorkStation freeStation = GetFreeWorkStation();
+        WorkStation station = GetAvailableStation();
 
-        if (freeStation == null)
+        if (station == null)
         {
-            Debug.LogWarning("[CustomerManager] No hay WorkStations libres.");
+            Debug.LogWarning("[CustomerManager] No hay WorkStations disponibles.");
             return;
         }
 
-        freeStation.RequestWork(itemGO, itemDef);
+        if (!station.ReceptionDesk.TryDepositFromCustomer(itemDef, itemGO))
+        {
+            Debug.LogWarning("[CustomerManager] La ReceptionDesk no tenía sitio libre pese a la comprobación previa.");
+        }
     }
 
     /// <summary>
-    /// La WorkStation ha terminado el trabajo.
-    /// El primer cliente de la cola puede recoger su objeto y marcharse.
-    /// </summary>
-    public void ServeNextCustomer(WorkStation workStation)
-    {
-        if (_queue.Count == 0) return;
-        _queue[0].BeServed();
-    }
-
-    /// <summary>
-    /// El cliente ha recogido su objeto y va a salir.
-    /// Avanza la cola.
+    /// El cliente ha entregado su objeto y se va. Avanza la cola.
     /// </summary>
     public void OnCustomerLeaving(Customer customer)
     {
@@ -147,14 +152,17 @@ public class CustomerManager : MonoBehaviour
 
     // ── WorkStations ─────────────────────────────────────────────────
 
-    /// <summary>Devuelve la primera WorkStation libre, o null si todas están ocupadas.</summary>
-    private WorkStation GetFreeWorkStation()
+    /// <summary>
+    /// Devuelve la WorkStation a la que entregar el próximo objeto.
+    /// Por ahora, simplemente la primera registrada — con un único taller
+    /// en el proyecto, es funcionalmente correcto. Cuando haya varios talleres
+    /// activos a la vez, este método necesitará un criterio de reparto real
+    /// (por ejemplo, menor acumulación en la cola de entrada).
+    /// </summary>
+    private WorkStation GetAvailableStation()
     {
-        foreach (WorkStation ws in workStations)
-        {
-            if (!ws.IsBusy) return ws;
-        }
-        return null;
+        if (workStations.Count == 0) return null;
+        return workStations[0];
     }
 
     /// <summary>

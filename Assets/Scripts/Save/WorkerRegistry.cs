@@ -5,7 +5,7 @@ public class WorkerRegistry : MonoBehaviour
 {
     public static WorkerRegistry Instance { get; private set; }
 
-    private readonly List<Worker> _activeWorkers = new();
+    private readonly List<WorkerBase> _activeWorkers = new();
 
     void Awake()
     {
@@ -14,20 +14,20 @@ public class WorkerRegistry : MonoBehaviour
         DontDestroyOnLoad(gameObject);
     }
 
-    public void Register(Worker worker)
+    public void Register(WorkerBase worker)
     {
         if (!_activeWorkers.Contains(worker))
             _activeWorkers.Add(worker);
     }
 
-    public void Unregister(Worker worker)
+    public void Unregister(WorkerBase worker)
     {
         _activeWorkers.Remove(worker);
     }
 
     public void ApplyTapBoostToAll(float seconds)
     {
-        foreach (Worker w in _activeWorkers)
+        foreach (WorkerBase w in _activeWorkers)
             w.ApplyTapBoost(seconds);
     }
 }

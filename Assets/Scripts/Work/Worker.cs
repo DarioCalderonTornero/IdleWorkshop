@@ -1,122 +1,120 @@
 ﻿using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
-public class Worker : MonoBehaviour
+/// <summary>
+/// Trabajador de una mesa concreta. Espera a que su mesa (WorkTable) tenga
+/// un ítem en cola, lo recoge de su propio BoxPoint, lo procesa, y lo
+/// transporta hasta la siguiente mesa desbloqueada (o hasta la recepción,
+/// si es la última). No conoce el resto del taller, solo su propia mesa
+/// y la referencia a WorkStation para preguntar "cuál es la siguiente".
+/// </summary>
+public class Worker : WorkerBase
 {
-    [Header("Posición idle")]
-    [SerializeField] private Transform idlePosition;
-
-    [Header("Objeto en cabeza")]
-    [SerializeField] private Transform headAnchor;
-
-    [Header("Movimiento")]
-    [SerializeField] private float baseMoveSpeed = 4f;
-
     [Header("UI")]
     [SerializeField] private RepairProgressUI progressUI;
 
+    private WorkTable _myTable;
     private WorkStation _workStation;
-    private float _currentMoveSpeed;
+    private bool _isWorking;
 
-    private void Awake()
+    public void Init(WorkTable myTable, WorkStation workStation)
     {
-        _currentMoveSpeed = baseMoveSpeed;
-    }
-
-    public void Init(WorkStation workStation)
-    {
+        _myTable = myTable;
         _workStation = workStation;
+
         if (idlePosition != null)
             transform.position = idlePosition.position;
 
         WorkerRegistry.Instance?.Register(this);
+
+        _myTable.OnItemEnqueued += HandleItemEnqueued;
+
+        TryStartNextItem();
     }
 
-    public void StartWork(GameObject itemGO, ItemDefinition itemDef)
+    private void HandleItemEnqueued()
     {
-        StartCoroutine(WorkLoop(itemGO, itemDef));
+        if (!_isWorking)
+            TryStartNextItem();
     }
 
-    public void ApplyMoveSpeedMultiplier(float multiplier)
+    private void TryStartNextItem()
     {
-        _currentMoveSpeed = baseMoveSpeed * multiplier;
+        if (_isWorking) return;
+        if (!_myTable.TryDequeueItem(out ItemDefinition itemDef)) return;
+
+        _isWorking = true;
+        StartCoroutine(WorkRoutine(itemDef));
     }
 
-    private IEnumerator WorkLoop(GameObject itemGO, ItemDefinition itemDef)
+    private IEnumerator WorkRoutine(ItemDefinition itemDef)
     {
-        // 1. Ir a recepción
-        yield return MoveTo(_workStation.ReceptionDesk.PlayerSlotPos);
+        // 1. Ir a la caja de entrada de esta mesa y recoger (instanciar) el objeto
+        yield return MoveTo(_myTable.BoxPointPos);
 
-        // 2. Coger objeto
-        Transform anchor = headAnchor != null ? headAnchor : transform;
-        itemGO.transform.SetParent(anchor);
-        itemGO.transform.localPosition = Vector3.zero;
+        GameObject itemGO = SpawnItemVisual(itemDef);
+        PickUpInstant(itemGO);
 
-        // 3. Copia la lista
-        List<WorkTable> desks = new List<WorkTable>(_workStation.GetUnlockedDesks());
+        // 2. Llevarlo al puesto de trabajo y procesarlo
+        yield return MoveTo(_myTable.PlayerSlotPos);
+        PutDown(itemGO, _myTable.ItemSlotPos);
 
-        if (desks.Count == 0)
+        bool gotStar = false;
+        yield return ProcessRoutine(itemDef, result => gotStar = result);
+
+        BestiaryManager.Instance?.RegisterItem(itemDef, gotStar ? 1 : 0);
+
+        yield return PickUpAnim(itemGO);
+
+        // 3. Determinar destino: la siguiente mesa desbloqueada, o el final del recorrido
+        WorkTable nextTable = _workStation.GetNextUnlockedDesk(_myTable);
+
+        if (nextTable != null)
         {
-            Debug.LogError("[Worker] No hay mesas desbloqueadas.");
-            yield break;
+            yield return MoveTo(nextTable.BoxPointPos);
+            nextTable.EnqueueItem(itemDef);
+            Destroy(itemGO);
+        }
+        else
+        {
+            yield return MoveTo(_workStation.ReceptionDesk.FinalBoxPointPos);
+            Destroy(itemGO);
+            _workStation.OnWorkCompleted();
         }
 
-        // Contador de estrellas de esta ronda
-        int starsThisRound = 0;
-
-        foreach (WorkTable desk in desks)
-        {
-            yield return MoveTo(desk.PlayerSlotPos);
-            PutDown(itemGO, desk.ItemSlotPos);
-
-            // Procesa y recoge las estrellas de esta mesa
-            bool gotStar = false;
-            yield return ProcessRoutine(itemDef, desk, result => gotStar = result);
-
-            if (gotStar) starsThisRound++;
-
-            yield return PickUpAnim(itemGO);
-        }
-
-        // Registra el objeto con las estrellas de esta ronda
-        BestiaryManager.Instance?.RegisterItem(itemDef, starsThisRound);
-
-        // 4. Volver a recepción
-        yield return MoveTo(_workStation.ReceptionDesk.PlayerSlotPos);
-
-        // 5. Dejar objeto para el cliente
-        PutDown(itemGO, _workStation.ReceptionItemPoint.position);
-
-        // Registra como vendido al terminar todas las mesas
-        BestiaryManager.Instance?.RegisterSold(itemDef);
-
-        // 6. Avisar que terminó
-        _workStation.OnWorkCompleted();
-
-        // 7. Volver a idle
+        // 4. Volver a esperar en su puesto
         yield return MoveTo(idlePosition.position);
+
+        _isWorking = false;
+        TryStartNextItem();
     }
 
-    private IEnumerator ProcessRoutine(ItemDefinition itemDef, WorkTable desk,
-    System.Action<bool> onComplete)
+    private GameObject SpawnItemVisual(ItemDefinition itemDef)
     {
-        float processTime = desk.GetProcessTime(itemDef);
+        GameObject go = Instantiate(itemDef.itemPrefab);
+
+        if (go.TryGetComponent<SpriteRenderer>(out var sr))
+        {
+            sr.sprite = itemDef.sprite;
+            sr.sortingOrder = 2;
+        }
+
+        go.transform.localScale = new Vector3(itemDef.displayScale.x, itemDef.displayScale.y, 1f);
+        return go;
+    }
+
+    private IEnumerator ProcessRoutine(ItemDefinition itemDef, System.Action<bool> onComplete)
+    {
+        float processTime = _myTable.GetProcessTime(itemDef);
         float elapsed = 0f;
 
         progressUI?.Show(0f);
 
         while (elapsed < processTime)
         {
-            // Consume el boost acumulado por taps
-            if (_tapBoostAccumulated > 0f)
-            {
-                elapsed += _tapBoostAccumulated;
-                _tapBoostAccumulated = 0f;
-            }
-
+            elapsed += ConsumeTapBoost();
             elapsed += Time.deltaTime;
-            elapsed = Mathf.Min(elapsed, processTime); // no sobrepasa el límite
+            elapsed = Mathf.Min(elapsed, processTime);
             progressUI?.SetFill(elapsed / processTime);
             yield return null;
         }
@@ -124,87 +122,20 @@ public class Worker : MonoBehaviour
         progressUI?.SetFill(1f);
         progressUI?.Hide();
 
-        // Roll de estrella
-        bool gotStar = desk.RollStar();
+        bool gotStar = _myTable.RollStar();
         if (gotStar)
-        {
-            StarPopupSpawner.Instance?.Spawn(desk.ItemSlotPos);
-            Debug.Log($"[Worker] ¡Estrella en {desk.gameObject.name}!");
-        }
+            StarPopupSpawner.Instance?.Spawn(_myTable.ItemSlotPos);
 
-        // Paga al terminar esta mesa
-        int reward = desk.GetReward(itemDef);
+        int reward = _myTable.GetReward(itemDef);
         EconomyManager.Instance?.AddCoins(reward);
-
-        // Registra en bestiario
-        BestiaryManager.Instance?.RegisterItem(itemDef, 0);
 
         onComplete?.Invoke(gotStar);
     }
 
-    private void PutDown(GameObject itemGO, Vector3 worldPos)
-    {
-        itemGO.transform.SetParent(null);
-        itemGO.transform.position = worldPos;
-    }
-
-    private IEnumerator PickUpAnim(GameObject itemGO)
-    {
-        Vector3 startPos = itemGO.transform.position;
-        Transform anchor = headAnchor != null ? headAnchor : transform;
-        Vector3 targetPos = anchor.position;
-
-        float elapsed = 0f;
-        float animTime = 0.35f;
-
-        while (elapsed < animTime)
-        {
-            elapsed += Time.deltaTime;
-            itemGO.transform.position = Vector3.Lerp(
-                startPos, targetPos,
-                Mathf.SmoothStep(0f, 1f, elapsed / animTime));
-            yield return null;
-        }
-
-        itemGO.transform.SetParent(anchor);
-        itemGO.transform.localPosition = Vector3.zero;
-    }
-
-    private IEnumerator MoveTo(Vector3 target)
-    {
-        while (Vector3.Distance(transform.position, target) > 0.05f)
-        {
-            transform.position = Vector3.MoveTowards(
-                transform.position, target,
-                _currentMoveSpeed * Time.deltaTime);
-            yield return null;
-        }
-        transform.position = target;
-    }
-
-    // Variable de boost acumulado
-    private float _tapBoostAccumulated = 0f;
-    private readonly object _boostLock = new object();
-
-    // Llamado desde TapHandler
-    public void ApplyTapBoost(float seconds)
-    {
-        _tapBoostAccumulated += seconds;
-    }
-
-    void OnDestroy()
+    private void OnDestroy()
     {
         WorkerRegistry.Instance?.Unregister(this);
+        if (_myTable != null)
+            _myTable.OnItemEnqueued -= HandleItemEnqueued;
     }
-
-#if UNITY_EDITOR
-    private void OnDrawGizmos()
-    {
-        if (idlePosition != null)
-        {
-            Gizmos.color = Color.white;
-            Gizmos.DrawWireSphere(idlePosition.position, 0.12f);
-        }
-    }
-#endif
 }

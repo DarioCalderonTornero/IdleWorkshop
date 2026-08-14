@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 public class WorkTable : MonoBehaviour
@@ -6,12 +8,17 @@ public class WorkTable : MonoBehaviour
     [SerializeField] private Transform playerSlot;
     [Tooltip("Punto encima de la mesa donde se deposita el objeto")]
     [SerializeField] private Transform itemSlot;
+    [Tooltip("Punto donde se acumulan los objetos pendientes (caja de entrada)")]
+    [SerializeField] private Transform boxPoint;
+
+    [Header("Worker propio de esta mesa")]
+    [SerializeField] private Worker worker;
 
     [Header("Multiplicadores base")]
     [SerializeField] private float baseTimeMultiplier = 1f;
     [SerializeField] private float baseRewardMultiplier = 1f;
 
-    // Multiplicador propio de nivel (ya existía, viene de WorkDeskUpgradeable)
+    // Multiplicador propio de nivel (viene de WorkDeskUpgradeable)
     private float _levelTimeMultiplier;
     private float _levelRewardMultiplier;
 
@@ -23,6 +30,18 @@ public class WorkTable : MonoBehaviour
     private int _currentLevel = 1;
     private UpgradeData _upgradeData;
 
+    // ── Cola de ítems pendientes ────────────────────────────────────
+    private readonly Queue<ItemDefinition> _pendingItems = new();
+    public event Action OnItemEnqueued;
+
+    [Header("Visual de la caja (opcional)")]
+    [SerializeField] private SpriteRenderer boxRenderer;
+    [SerializeField] private Sprite boxEmptySprite;
+    [SerializeField] private Sprite boxPartialSprite;
+    [SerializeField] private Sprite boxFullSprite;
+    [Tooltip("A partir de cuántos ítems acumulados se considera 'llena'")]
+    [SerializeField] private int boxFullThreshold = 5;
+
     void Awake()
     {
         _levelTimeMultiplier = baseTimeMultiplier;
@@ -30,10 +49,48 @@ public class WorkTable : MonoBehaviour
         _currentStarChance = 0f;
     }
 
+    void Start()
+    {
+        if (worker != null)
+            worker.Init(this, GetComponentInParent<WorkStation>());
+
+        UpdateBoxVisual();
+    }
+
     public Vector3 PlayerSlotPos => playerSlot.position;
     public Vector3 ItemSlotPos => itemSlot.position;
+    public Vector3 BoxPointPos => boxPoint.position;
 
-    // Combina nivel propio + bonus de zona en el cálculo final
+    // ── Cola ─────────────────────────────────────────────────────────
+    public void EnqueueItem(ItemDefinition item)
+    {
+        _pendingItems.Enqueue(item);
+        UpdateBoxVisual();
+        OnItemEnqueued?.Invoke();
+    }
+
+    public bool TryDequeueItem(out ItemDefinition item)
+    {
+        bool success = _pendingItems.TryDequeue(out item);
+        if (success) UpdateBoxVisual();
+        return success;
+    }
+
+    private void UpdateBoxVisual()
+    {
+        if (boxRenderer == null) return;
+
+        int count = _pendingItems.Count;
+
+        if (count <= 0)
+            boxRenderer.sprite = boxEmptySprite;
+        else if (count >= boxFullThreshold)
+            boxRenderer.sprite = boxFullSprite;
+        else
+            boxRenderer.sprite = boxPartialSprite;
+    }
+
+    // ── Cálculo de tiempo/recompensa ──────────────────────────────────
     public float GetProcessTime(ItemDefinition item)
         => Mathf.Max(0.1f, item.baseRepairTime * _levelTimeMultiplier * _zoneTimeMultiplier);
 
@@ -64,7 +121,7 @@ public class WorkTable : MonoBehaviour
     public bool RollStar()
     {
         if (_currentStarChance <= 0f) return false;
-        return Random.Range(0f, 100f) < _currentStarChance;
+        return UnityEngine.Random.Range(0f, 100f) < _currentStarChance;
     }
 
     public float CurrentStarChance => _currentStarChance;
@@ -81,6 +138,11 @@ public class WorkTable : MonoBehaviour
         {
             Gizmos.color = Color.red;
             Gizmos.DrawWireSphere(itemSlot.position, 0.12f);
+        }
+        if (boxPoint != null)
+        {
+            Gizmos.color = Color.cyan;
+            Gizmos.DrawWireSphere(boxPoint.position, 0.12f);
         }
     }
 #endif

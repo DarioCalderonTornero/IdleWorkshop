@@ -72,6 +72,12 @@ public class RoomUpgradePanelUI : MonoBehaviour
         CameraController.Instance?.Unlock();
     }
 
+    public void RefreshButtons()
+    {
+        if (currentStation == null) return;
+        PopulateButtons();
+    }
+
     private void PopulateButtons()
     {
         foreach (var go in spawnedButtons)
