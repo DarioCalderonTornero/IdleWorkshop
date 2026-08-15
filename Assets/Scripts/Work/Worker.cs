@@ -4,9 +4,9 @@ using UnityEngine;
 /// <summary>
 /// Trabajador de una mesa concreta. Espera a que su mesa (WorkTable) tenga
 /// un ítem en cola, lo recoge de su propio BoxPoint, lo procesa, y lo
-/// transporta hasta la siguiente mesa desbloqueada (o hasta la recepción,
-/// si es la última). No conoce el resto del taller, solo su propia mesa
-/// y la referencia a WorkStation para preguntar "cuál es la siguiente".
+/// transporta hasta la siguiente mesa desbloqueada. Si es la última mesa,
+/// camina hasta el primer cliente esperando en la cola de recogida y le
+/// entrega el objeto directamente en la mano.
 /// </summary>
 public class Worker : WorkerBase
 {
@@ -66,7 +66,7 @@ public class Worker : WorkerBase
 
         yield return PickUpAnim(itemGO);
 
-        // 3. Determinar destino: la siguiente mesa desbloqueada, o el final del recorrido
+        // 3. Determinar destino: la siguiente mesa desbloqueada, o entrega directa al cliente
         WorkTable nextTable = _workStation.GetNextUnlockedDesk(_myTable);
 
         if (nextTable != null)
@@ -77,8 +77,16 @@ public class Worker : WorkerBase
         }
         else
         {
-            yield return MoveTo(_workStation.ReceptionDesk.FinalBoxPointPos);
-            Destroy(itemGO);
+            // Espera hasta que haya un cliente esperando en la cola de recogida
+            Vector3 pickupPos;
+            while (!CustomerManager.Instance.TryGetFirstPickupPosition(out pickupPos))
+                yield return null;
+
+            yield return MoveTo(pickupPos);
+
+            itemGO.transform.SetParent(null);
+            CustomerManager.Instance.DeliverToFirstPickupCustomer(itemGO);
+
             _workStation.OnWorkCompleted();
         }
 

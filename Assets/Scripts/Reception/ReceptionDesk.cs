@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using UnityEngine;
 
 public class ReceptionDesk : MonoBehaviour
@@ -14,7 +14,7 @@ public class ReceptionDesk : MonoBehaviour
     public Vector3 ObjectPointPos => objectPoint.position;
     public Vector3 FinalBoxPointPos => finalBoxPoint.position;
 
-    //Slot �nico: un objeto esperando al recepcionista
+    // ── Slot de entrada: objeto dejado por el cliente, esperando al Receptionist ──
     private ItemDefinition _pendingItem;
     private GameObject _pendingItemGO;
     private bool _hasPendingItem;
@@ -24,7 +24,6 @@ public class ReceptionDesk : MonoBehaviour
     public event Action OnItemWaiting;
     public event Action OnSlotFreed;
 
-    /// <summary>Devuelve false si ya hay un objeto esperando (el llamador debe reintentar m�s tarde).</summary>
     public bool TryDepositFromCustomer(ItemDefinition itemDef, GameObject itemGO)
     {
         if (_hasPendingItem) return false;

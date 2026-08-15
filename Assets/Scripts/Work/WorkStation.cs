@@ -148,6 +148,9 @@ public class WorkStation : MonoBehaviour
     /// </summary>
     public void OnWorkCompleted()
     {
+        // Punto de enganche para futuras estadísticas/eventos cuando se
+        // complete un trabajo. La entrega al cliente ya ocurre directamente
+        // entre Worker y CustomerManager, antes de llegar aquí.
     }
 
     public WorkStationSaveData GetSaveData()

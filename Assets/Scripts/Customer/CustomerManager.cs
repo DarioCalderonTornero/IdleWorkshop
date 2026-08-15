@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Spawner y gestor de la cola de clientes.
-/// El cliente entrega el objeto en la ReceptionDesk y se va de inmediato,
-/// sin esperar a que el objeto se procese en el taller — el ciclo del
-/// cliente y el ciclo del objeto son independientes.
+/// Spawner y gestor de las colas de clientes: una de entrega (entryQueue)
+/// y una de recogida (pickupQueue), colocada al lado de la primera.
+/// El cliente entrega, se mueve lateralmente a esperar su objeto terminado,
+/// y se va cuando el worker de la última mesa se lo entrega directamente.
 /// </summary>
 public class CustomerManager : MonoBehaviour
 {
@@ -16,7 +16,7 @@ public class CustomerManager : MonoBehaviour
     [Tooltip("Transforms en orden: el último es el pie de la columna de espera")]
     [SerializeField] private Transform[] pathWaypoints;
 
-    [Header("Cola (frente a la mesa de recepción)")]
+    [Header("Cola de entrega (frente a la mesa de recepción)")]
     [Tooltip("Punto donde el primer cliente SE PARA a esperar")]
     [SerializeField] private Transform deskSlot;
 
@@ -25,6 +25,10 @@ public class CustomerManager : MonoBehaviour
 
     [Tooltip("Separación en Y entre clientes (negativo = cola hacia abajo)")]
     [SerializeField] private float slotSpacingY = -1.2f;
+
+    [Header("Cola de recogida (al lado de la de entrega)")]
+    [Tooltip("Punto donde el primer cliente de la cola de recogida espera")]
+    [SerializeField] private Transform pickupSlot;
 
     [Header("Spawn")]
     [SerializeField] private GameObject customerPrefab;
@@ -37,7 +41,8 @@ public class CustomerManager : MonoBehaviour
     [SerializeField] private List<WorkStation> workStations = new();
 
     // ── Estado ──────────────────────────────────────────────────────
-    private readonly List<Customer> _queue = new();
+    private readonly List<Customer> _entryQueue = new();
+    private readonly List<Customer> _pickupQueue = new();
 
     private void Awake()
     {
@@ -63,7 +68,7 @@ public class CustomerManager : MonoBehaviour
         while (true)
         {
             yield return new WaitForSeconds(spawnInterval);
-            if (_queue.Count < maxCustomers)
+            if (_entryQueue.Count < maxCustomers)
                 SpawnCustomer();
         }
     }
@@ -86,11 +91,11 @@ public class CustomerManager : MonoBehaviour
         GameObject go = Instantiate(customerPrefab, pathWaypoints[0].position, Quaternion.identity);
         Customer customer = go.GetComponent<Customer>();
 
-        int slotIndex = _queue.Count;
+        int slotIndex = _entryQueue.Count;
         Vector3 slotPos = GetSlotPosition(slotIndex);
 
         customer.Init(this, pathWaypoints, slotPos, slotIndex, itemDef, itemDropTarget.position);
-        _queue.Add(customer);
+        _entryQueue.Add(customer);
     }
 
     // ── Posiciones de cola ───────────────────────────────────────────
@@ -99,24 +104,21 @@ public class CustomerManager : MonoBehaviour
         return deskSlot.position + Vector3.up * slotSpacingY * index;
     }
 
-    // ── Callbacks desde Customer ─────────────────────────────────────
+    public Vector3 GetPickupSlotPosition(int index)
+    {
+        return pickupSlot.position + Vector3.up * slotSpacingY * index;
+    }
 
-    /// <summary>
-    /// True si la recepción de la WorkStation disponible tiene sitio libre
-    /// para recibir un objeto nuevo. El Customer debe esperar mientras esto
-    /// sea false antes de animar la entrega.
-    /// </summary>
+    // ── Callbacks desde Customer: entrega ─────────────────────────────
+
     public bool ReceptionHasFreeSlot()
     {
         WorkStation station = GetAvailableStation();
         return station != null && station.ReceptionDesk.HasFreeSlot;
     }
 
-    /// <summary>
-    /// El cliente ha dejado el objeto. Se deposita en el slot de espera de
-    /// la ReceptionDesk — el Receptionist lo recogerá de ahí y lo llevará
-    /// hasta la primera mesa desbloqueada.
-    /// </summary>
+    public bool PickupQueueHasSpace => _pickupQueue.Count < maxCustomers;
+
     public void OnItemPlacedOnDesk(ItemDefinition itemDef, GameObject itemGO)
     {
         WorkStation station = GetAvailableStation();
@@ -133,18 +135,54 @@ public class CustomerManager : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// El cliente ha entregado su objeto y se va. Avanza la cola.
-    /// </summary>
-    public void OnCustomerLeaving(Customer customer)
+    /// <summary>El cliente ha entregado y se mueve a la cola de recogida.</summary>
+    public void OnCustomerMovedToPickup(Customer customer)
     {
-        _queue.Remove(customer);
+        _entryQueue.Remove(customer);
+        for (int i = 0; i < _entryQueue.Count; i++)
+            _entryQueue[i].MoveToEntrySlot(i, GetSlotPosition(i));
 
-        for (int i = 0; i < _queue.Count; i++)
-            _queue[i].MoveToSlot(i, GetSlotPosition(i));
+        int pickupIndex = _pickupQueue.Count;
+        _pickupQueue.Add(customer);
+        customer.MoveToPickupSlot(pickupIndex, GetPickupSlotPosition(pickupIndex));
     }
 
-    /// <summary>El cliente ha cruzado el borde. Destruir el GameObject.</summary>
+    // ── Callbacks: recogida y entrega directa ─────────────────────────
+
+    /// <summary>Devuelve la posición actual del primer cliente esperando en la cola de recogida.</summary>
+    public bool TryGetFirstPickupPosition(out Vector3 pos)
+    {
+        if (_pickupQueue.Count == 0)
+        {
+            pos = Vector3.zero;
+            return false;
+        }
+        pos = _pickupQueue[0].transform.position;
+        return true;
+    }
+
+    /// <summary>Entrega el objeto terminado directamente al primer cliente de la cola de recogida.</summary>
+    public void DeliverToFirstPickupCustomer(GameObject itemGO)
+    {
+        if (_pickupQueue.Count == 0)
+        {
+            Debug.LogWarning("[CustomerManager] No había ningún cliente en la cola de recogida al entregar. Se destruye el objeto.");
+            Destroy(itemGO);
+            return;
+        }
+
+        _pickupQueue[0].ReceiveFinishedItem(itemGO);
+    }
+
+    /// <summary>El cliente ha recibido su objeto y sale. Avanza la cola de recogida.</summary>
+    public void OnCustomerLeavingPickup(Customer customer)
+    {
+        _pickupQueue.Remove(customer);
+        for (int i = 0; i < _pickupQueue.Count; i++)
+            _pickupQueue[i].MoveToPickupSlot(i, GetPickupSlotPosition(i));
+    }
+
+    /// <summary>El cliente ha cruzado el borde. Destruir el GameObject (y su objeto en la cabeza, si tiene).</summary>
     public void OnCustomerDone(Customer customer)
     {
         Destroy(customer.gameObject);
@@ -152,32 +190,18 @@ public class CustomerManager : MonoBehaviour
 
     // ── WorkStations ─────────────────────────────────────────────────
 
-    /// <summary>
-    /// Devuelve la WorkStation a la que entregar el próximo objeto.
-    /// Por ahora, simplemente la primera registrada — con un único taller
-    /// en el proyecto, es funcionalmente correcto. Cuando haya varios talleres
-    /// activos a la vez, este método necesitará un criterio de reparto real
-    /// (por ejemplo, menor acumulación en la cola de entrada).
-    /// </summary>
     private WorkStation GetAvailableStation()
     {
         if (workStations.Count == 0) return null;
         return workStations[0];
     }
 
-    /// <summary>
-    /// Registra una nueva WorkStation en tiempo de ejecución.
-    /// Útil cuando se desbloquea una estación nueva al subir de nivel.
-    /// </summary>
     public void RegisterWorkStation(WorkStation workStation)
     {
         if (!workStations.Contains(workStation))
             workStations.Add(workStation);
     }
 
-    /// <summary>
-    /// Elimina una WorkStation del sistema.
-    /// </summary>
     public void UnregisterWorkStation(WorkStation workStation)
     {
         workStations.Remove(workStation);
@@ -206,6 +230,15 @@ public class CustomerManager : MonoBehaviour
             Gizmos.color = new Color(0f, 1f, 1f, 0.3f);
             for (int i = 0; i < maxCustomers; i++)
                 Gizmos.DrawWireSphere(GetSlotPosition(i), 0.1f);
+        }
+
+        if (pickupSlot != null)
+        {
+            Gizmos.color = Color.magenta;
+            Gizmos.DrawWireSphere(pickupSlot.position, 0.15f);
+            Gizmos.color = new Color(1f, 0f, 1f, 0.3f);
+            for (int i = 0; i < maxCustomers; i++)
+                Gizmos.DrawWireSphere(GetPickupSlotPosition(i), 0.1f);
         }
 
         if (itemDropTarget != null)

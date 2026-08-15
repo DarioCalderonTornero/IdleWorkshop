@@ -2,9 +2,11 @@
 using UnityEngine;
 
 /// <summary>
-/// Comportamiento de un cliente individual.
-/// El cliente entrega el objeto y se va de inmediato, sin esperar a que
-/// se complete ningún trabajo — la cola avanza en el momento de la entrega.
+/// Comportamiento de un cliente individual. Entrega su objeto, se mueve
+/// lateralmente a esperar en la cola de recogida, y recibe su objeto
+/// terminado directamente de manos del worker antes de salir del mapa.
+/// Ambas colas avanzan correctamente: si un cliente esperando cambia de
+/// slot (porque otro se fue), vuelve a moverse hacia su nueva posición.
 /// </summary>
 public class Customer : MonoBehaviour
 {
@@ -22,7 +24,16 @@ public class Customer : MonoBehaviour
     [SerializeField] private float exitX = 12f;
 
     // ── Estado ─────────────────────────────────────────────────────
-    private enum State { FollowingPath, MovingToSlot, Dropping, Leaving }
+    private enum State
+    {
+        FollowingPath,
+        MovingToEntrySlot,
+        WaitingInEntryQueue,
+        Dropping,
+        MovingToPickup,
+        WaitingForItem,
+        Leaving
+    }
     private State _state = State.FollowingPath;
 
     private CustomerManager _manager;
@@ -84,7 +95,8 @@ public class Customer : MonoBehaviour
         switch (_state)
         {
             case State.FollowingPath: UpdateFollowPath(); break;
-            case State.MovingToSlot: UpdateMoveToSlot(); break;
+            case State.MovingToEntrySlot: UpdateMoveToEntrySlot(); break;
+            case State.MovingToPickup: UpdateMoveToPickup(); break;
             case State.Leaving: UpdateLeaving(); break;
         }
     }
@@ -94,7 +106,7 @@ public class Customer : MonoBehaviour
     {
         if (_waypointIndex >= _waypoints.Length)
         {
-            _state = State.MovingToSlot;
+            _state = State.MovingToEntrySlot;
             return;
         }
 
@@ -107,53 +119,80 @@ public class Customer : MonoBehaviour
         }
     }
 
-    private void UpdateMoveToSlot()
+    private void UpdateMoveToEntrySlot()
     {
         MoveTo(_slotPos);
 
         if (Reached(_slotPos))
         {
             transform.position = _slotPos;
-            OnReachedSlot();
+            OnReachedEntrySlot();
         }
     }
 
-    private void OnReachedSlot()
+    private void OnReachedEntrySlot()
     {
         if (_slotIndex == 0)
         {
             _state = State.Dropping;
             StartCoroutine(DropItemRoutine());
         }
-        // Si no es el primero, simplemente espera en su sitio (MoveToSlot lo reubicará cuando avance la cola)
+        else
+        {
+            _state = State.WaitingInEntryQueue;
+        }
     }
 
-    // ── Dejar objeto y salir de inmediato ───────────────────────────
+    // ── Dejar objeto y moverse a la cola de recogida ────────────────
     private IEnumerator DropItemRoutine()
     {
         if (_itemGO == null)
         {
-            FinishDelivery();
+            _state = State.Leaving;
             yield break;
         }
 
-        // Espera hasta que la recepción tenga sitio libre
         while (!_manager.ReceptionHasFreeSlot())
+            yield return null;
+
+        while (!_manager.PickupQueueHasSpace)
             yield return null;
 
         _itemGO.transform.SetParent(null);
         yield return AnimateItem(_itemGO, _itemGO.transform.position, _dropTargetPos, dropDuration);
 
         _manager.OnItemPlacedOnDesk(_itemDef, _itemGO);
+        _itemGO = null; // el objeto entregado ya no pertenece a este cliente
 
-        FinishDelivery();
+        _state = State.MovingToPickup;
+        _manager.OnCustomerMovedToPickup(this);
     }
 
-    private void FinishDelivery()
+    private void UpdateMoveToPickup()
     {
-        // El cliente se va de inmediato: avanza la cola y sale del mapa,
-        // sin esperar a que el objeto se procese en el taller.
-        _manager.OnCustomerLeaving(this);
+        MoveTo(_slotPos);
+
+        if (Reached(_slotPos))
+        {
+            transform.position = _slotPos;
+            _state = State.WaitingForItem;
+        }
+    }
+
+    // ── Recibir objeto terminado directamente del worker ────────────
+    public void ReceiveFinishedItem(GameObject itemGO)
+    {
+        if (_state != State.WaitingForItem)
+        {
+            Debug.LogWarning($"[Customer] Se intentó entregar un objeto a un cliente que no estaba esperando (estado: {_state}).");
+        }
+
+        Transform anchor = headAnchor != null ? headAnchor : transform;
+        itemGO.transform.SetParent(anchor);
+        itemGO.transform.localPosition = Vector3.zero;
+        _itemGO = itemGO; // se destruirá con el cliente al salir (OnDestroy)
+
+        _manager.OnCustomerLeavingPickup(this);
         _state = State.Leaving;
     }
 
@@ -168,15 +207,25 @@ public class Customer : MonoBehaviour
     }
 
     // ── API pública ────────────────────────────────────────────────
-    public void MoveToSlot(int newIndex, Vector3 newPos)
+
+    /// <summary>Actualiza el slot de la cola de entrega. Si el cliente estaba esperando, vuelve a moverse.</summary>
+    public void MoveToEntrySlot(int newIndex, Vector3 newPos)
     {
         _slotIndex = newIndex;
         _slotPos = newPos;
 
-        if (_state == State.MovingToSlot || _state == State.FollowingPath)
-        {
-            // ya en camino, la posición se actualizará sola
-        }
+        if (_state == State.WaitingInEntryQueue)
+            _state = State.MovingToEntrySlot;
+    }
+
+    /// <summary>Actualiza el slot de la cola de recogida. Si el cliente estaba esperando, vuelve a moverse.</summary>
+    public void MoveToPickupSlot(int newIndex, Vector3 newPos)
+    {
+        _slotIndex = newIndex;
+        _slotPos = newPos;
+
+        if (_state == State.WaitingForItem)
+            _state = State.MovingToPickup;
     }
 
     public ItemDefinition ItemDef => _itemDef;
