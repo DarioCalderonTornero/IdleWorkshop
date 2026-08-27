@@ -47,6 +47,7 @@ public class WorkStationRegistry : MonoBehaviour
 
     public void LoadAllSaveData(List<WorkStationSaveData> saveDataList)
     {
+        Debug.Log($"[WorkStationRegistry] LoadAllSaveData llamado. Talleres ya registrados: {workStations.Count}");
         foreach (WorkStationSaveData workStatioSaveData in saveDataList)
         {
             WorkStation ws = GetById(workStatioSaveData.stationId);
@@ -58,7 +59,7 @@ public class WorkStationRegistry : MonoBehaviour
         }
     }
 
-    private WorkStation GetById(int stationId)
+    public WorkStation GetById(int stationId)
     {
         foreach (WorkStation ws in workStations)
             if (ws.StationId == stationId) return ws;

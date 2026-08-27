@@ -82,6 +82,22 @@ public class WorkStationUnlocker : MonoBehaviour
 
     public void RestoreWorkStation(WorkStationSaveData data)
     {
+        // Salvaguarda: si ya existe una WorkStation registrada con este id
+        // (por ejemplo, el taller inicial, inicializado en Awake), no la
+        // dupliques — simplemente aplícale los datos guardados.
+        WorkStation existing = WorkStationRegistry.Instance.GetById(data.stationId);
+        if (existing != null)
+        {
+            existing.LoadSaveData(data);
+
+            if (data.stationId >= nextIndex)
+            {
+                nextIndex = data.stationId + 1;
+                currentWorkStation = existing;
+            }
+            return;
+        }
+
         int listIndex = ListIndex(data.stationId);
 
         if (listIndex >= workStationsData.Count)

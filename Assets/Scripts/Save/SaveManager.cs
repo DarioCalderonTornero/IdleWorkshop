@@ -129,6 +129,7 @@ public class SaveManager : MonoBehaviour
     }
 
     //---HELPERS---
+    [ContextMenu("Borrar Save")]
     public void DeleteSave()
     {
         if (File.Exists(SaveFilePath))
