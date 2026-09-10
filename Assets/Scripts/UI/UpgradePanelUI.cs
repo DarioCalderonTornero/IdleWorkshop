@@ -1,15 +1,13 @@
-﻿using System.Collections;
+﻿// UpgradePanelUI.cs
 using TMPro;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
-public class UpgradePanelUI : MonoBehaviour
+public class UpgradePanelUI : SlidingPanelUI
 {
     public static UpgradePanelUI Instance { get; private set; }
 
     [Header("Referencias UI")]
-    [SerializeField] private RectTransform panelRect;
     [SerializeField] private Image elementImage;
     [SerializeField] private TextMeshProUGUI elementNameText;
     [SerializeField] private TextMeshProUGUI levelText;
@@ -18,19 +16,7 @@ public class UpgradePanelUI : MonoBehaviour
     [SerializeField] private Button upgradeButton;
     [SerializeField] private Button closeButton;
 
-    [Header("Animación")]
-    [SerializeField] private float animDuration = 0.3f;
-    [SerializeField] private float hiddenY = -384f;
-    [SerializeField] private float shownY = 224f;
-
     private IUpgradeable currentTarget;
-
-    public bool IsVisible => state == PanelState.Visible || state == PanelState.Showing || state == PanelState.Hiding;
-
-    private enum PanelState { Hidden, Showing, Visible, Hiding }
-    private PanelState state = PanelState.Hidden;
-
-    private Coroutine animCoroutine;
 
     [Header("Modo desbloqueo")]
     [SerializeField] private GameObject upgradeContent;   // todo el contenido normal
@@ -39,16 +25,14 @@ public class UpgradePanelUI : MonoBehaviour
 
     private WorkDeskUnlockable currentUnlockable;
 
-    public RectTransform PanelRect => panelRect;
+    [Header("Barra de evolución")]
+    [SerializeField] private Image evolutionBarFill;
 
-    void Awake()
+    protected override void Awake()
     {
         if (Instance != null) { Destroy(gameObject); return; }
         Instance = this;
-
-        // Empieza siempre oculto
-        panelRect.anchoredPosition = new Vector2(panelRect.anchoredPosition.x, hiddenY);
-        state = PanelState.Hidden;
+        base.Awake();
 
         upgradeButton.onClick.AddListener(OnUpgradeClicked);
         if (closeButton != null)
@@ -80,13 +64,11 @@ public class UpgradePanelUI : MonoBehaviour
 
         if (meetsReqs)
         {
-            // Requisitos cumplidos: muestra coste y permite desbloquear
             unlockCostText.text = $"Desbloquear\n{cost} monedas";
             unlockButton.interactable = EconomyManager.Instance.CanAfford(cost);
         }
         else
         {
-            // Requisitos no cumplidos: muestra qué falta
             unlockCostText.text = $"Requisitos pendientes:\n{unlockable.GetMissingRequirementsText()}";
             unlockButton.interactable = false;
         }
@@ -101,9 +83,7 @@ public class UpgradePanelUI : MonoBehaviour
             Hide();
         });
 
-        state = PanelState.Showing;
-        if (animCoroutine != null) StopCoroutine(animCoroutine);
-        animCoroutine = StartCoroutine(AnimateTo(shownY, () => state = PanelState.Visible));
+        AnimateToShown();
     }
 
     public void Show(IUpgradeable target)
@@ -113,67 +93,34 @@ public class UpgradePanelUI : MonoBehaviour
         currentTarget = target;
         currentUnlockable = null;
 
-        // Muestra contenido normal, oculta botón de desbloquear
         upgradeContent.SetActive(true);
         unlockButton.gameObject.SetActive(false);
 
         RefreshUI();
 
-        if (animCoroutine != null) StopCoroutine(animCoroutine);
-        state = PanelState.Showing;
-        animCoroutine = StartCoroutine(AnimateTo(shownY, () => state = PanelState.Visible));
+        AnimateToShown();
     }
 
     public void Hide()
     {
-        // Solo baja si está visible
         if (state != PanelState.Visible && state != PanelState.Showing) return;
 
-        if (animCoroutine != null) StopCoroutine(animCoroutine);
-        state = PanelState.Hiding;
-        animCoroutine = StartCoroutine(AnimateTo(hiddenY, () =>
-        {
-            state = PanelState.Hidden;
-            currentTarget = null;
-        }));
+        AnimateToHidden(() => currentTarget = null);
     }
 
     // ── Detección de toque fuera ─────────────────────────────────────
 
     void Update()
     {
-        // Solo comprueba si el panel está completamente visible
         if (state != PanelState.Visible) return;
         if (RoomUpgradePanelUI.Instance != null && RoomUpgradePanelUI.Instance.IsVisible) return;
 
-        bool clicked = false;
-        Vector2 screenPos = Vector2.zero;
+        if (!TryGetClickScreenPos(out Vector2 screenPos)) return;
 
-        if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
-        {
-            clicked = true;
-            screenPos = Mouse.current.position.ReadValue();
-        }
-        else if (Touchscreen.current != null &&
-                 Touchscreen.current.primaryTouch.press.wasPressedThisFrame)
-        {
-            clicked = true;
-            screenPos = Touchscreen.current.primaryTouch.position.ReadValue();
-        }
-
-        if (!clicked) return;
-
-        // Screen Space Overlay → cámara null
-        bool insidePanel = RectTransformUtility.RectangleContainsScreenPoint(
-            panelRect, screenPos, null);
-
-        if (!insidePanel) Hide();
+        if (!IsInsidePanel(screenPos)) Hide();
     }
 
     // ── UI ───────────────────────────────────────────────────────────
-
-    [Header("Barra de evolución")]
-    [SerializeField] private Image evolutionBarFill;
 
     void RefreshUI()
     {
@@ -187,7 +134,6 @@ public class UpgradePanelUI : MonoBehaviour
         levelText.text = $"Nivel {level}";
         descriptionText.text = data.description;
 
-        // Barra de progreso hacia la siguiente evolución
         var (floor, ceiling) = data.GetCurrentStageRange(level);
         float progress = ceiling > floor ? (float)(level - floor) / (ceiling - floor) : 1f;
         if (evolutionBarFill != null)
@@ -206,29 +152,6 @@ public class UpgradePanelUI : MonoBehaviour
         if (currentTarget == null) return;
         currentTarget.Upgrade();
         RefreshUI();
-    }
-
-    // ── Animación ────────────────────────────────────────────────────
-
-    IEnumerator AnimateTo(float targetY, System.Action onComplete)
-    {
-        float startY = panelRect.anchoredPosition.y;
-        float elapsed = 0f;
-
-        while (elapsed < animDuration)
-        {
-            elapsed += Time.deltaTime;
-            float t = Mathf.SmoothStep(0f, 1f, elapsed / animDuration);
-            panelRect.anchoredPosition = new Vector2(
-                panelRect.anchoredPosition.x,
-                Mathf.Lerp(startY, targetY, t));
-            yield return null;
-        }
-
-        panelRect.anchoredPosition = new Vector2(
-            panelRect.anchoredPosition.x, targetY);
-
-        onComplete?.Invoke();
     }
 
     void OnDestroy()

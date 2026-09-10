@@ -1,3 +1,4 @@
+// WorkTable.cs
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -27,8 +28,6 @@ public class WorkTable : MonoBehaviour
     private float _zoneRewardMultiplier = 1f;
 
     private float _currentStarChance;
-    private int _currentLevel = 1;
-    private UpgradeData _upgradeData;
 
     // ── Cola de ítems pendientes ────────────────────────────────────
     private readonly Queue<ItemDefinition> _pendingItems = new();
@@ -60,6 +59,10 @@ public class WorkTable : MonoBehaviour
     public Vector3 PlayerSlotPos => playerSlot.position;
     public Vector3 ItemSlotPos => itemSlot.position;
     public Vector3 BoxPointPos => boxPoint.position;
+
+    // Expuesto para que el Worker propio de esta mesa pueda usar este
+    // mismo Transform como su posición idle (ver Worker.Init).
+    public Transform PlayerSlotTransform => playerSlot;
 
     // ── Cola ─────────────────────────────────────────────────────────
     public void EnqueueItem(ItemDefinition item)
@@ -113,8 +116,6 @@ public class WorkTable : MonoBehaviour
 
     public void ApplyUpgradeData(UpgradeData data, int level)
     {
-        _upgradeData = data;
-        _currentLevel = level;
         _currentStarChance = data.GetStarChanceForLevel(level);
     }
 

@@ -57,24 +57,40 @@ public class WorkStationUnlocker : MonoBehaviour
         }
     }
 
-    public void UnlockNextWorkStation()
+    /// <summary>
+    /// Instancia el prefab correspondiente a listIndex, valida que tenga
+    /// WorkStation, lo inicializa con stationId y lo registra en CustomerManager.
+    /// Devuelve null (y destruye lo instanciado) si algo falla.
+    /// </summary>
+    private WorkStation InstantiateStation(int stationId, int listIndex)
     {
-        if (!CanUnlockNext) return;
+        GameObject go = Instantiate(
+            workStationsData[listIndex].prefab,
+            workStationSpawnPoints[listIndex].position,
+            Quaternion.identity);
 
-        int listIndex = ListIndex(nextIndex);
-
-        GameObject go = Instantiate(workStationsData[listIndex].prefab, workStationSpawnPoints[listIndex].position, Quaternion.identity);
         WorkStation workStation = go.GetComponent<WorkStation>();
         if (workStation == null)
         {
             Debug.LogError("[WorkStationUnlocker] El prefab no tiene componente WorkStation.");
             Destroy(go);
-            return;
+            return null;
         }
 
-        workStation.Init(nextIndex);
-        EconomyManager.Instance.SpendCoins(NextCost);
+        workStation.Init(stationId);
         CustomerManager.Instance.RegisterWorkStation(workStation);
+        return workStation;
+    }
+
+    public void UnlockNextWorkStation()
+    {
+        if (!CanUnlockNext) return;
+
+        int listIndex = ListIndex(nextIndex);
+        WorkStation workStation = InstantiateStation(nextIndex, listIndex);
+        if (workStation == null) return;
+
+        EconomyManager.Instance.SpendCoins(NextCost);
         currentWorkStation = workStation;
         nextIndex++;
         OnWorkStationUnlocked?.Invoke();
@@ -111,20 +127,9 @@ public class WorkStationUnlocker : MonoBehaviour
             return;
         }
 
-        GameObject go = Instantiate(
-            workStationsData[listIndex].prefab,
-            workStationSpawnPoints[listIndex].position,
-            Quaternion.identity);
-        WorkStation workStation = go.GetComponent<WorkStation>();
-        if (workStation == null)
-        {
-            Debug.LogError("[WorkStationUnlocker] El prefab no tiene componente WorkStation.");
-            Destroy(go);
-            return;
-        }
+        WorkStation workStation = InstantiateStation(data.stationId, listIndex);
+        if (workStation == null) return;
 
-        workStation.Init(data.stationId);
-        CustomerManager.Instance.RegisterWorkStation(workStation);
         workStation.LoadSaveData(data);
 
         if (data.stationId >= nextIndex)

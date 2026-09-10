@@ -98,12 +98,6 @@ public class EconomyManager : MonoBehaviour
         return currentCoins >= amount;
     }
 
-    //---GETTERS---
-    public double GetCurrentCoins()
-    {
-        return currentCoins;
-    }
-
     public void LoadCoins(double amount)
     {
         currentCoins = amount;

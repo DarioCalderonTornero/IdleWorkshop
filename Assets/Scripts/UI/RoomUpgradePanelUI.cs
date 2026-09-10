@@ -1,30 +1,17 @@
-using System.Collections;
+// RoomUpgradePanelUI.cs
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.InputSystem;
 
-public class RoomUpgradePanelUI : MonoBehaviour
+public class RoomUpgradePanelUI : SlidingPanelUI
 {
     public static RoomUpgradePanelUI Instance { get; private set; }
 
-    [Header("Referencias UI")]
-    [SerializeField] private RectTransform panelRect;
+    [Header("Botones")]
     [SerializeField] private Transform buttonsContainer;
     [SerializeField] private GameObject buttonPrefab;
 
-    [Header("Animación")]
-    [SerializeField] private float animDuration = 0.3f;
-    [SerializeField] private float hiddenY = -384f;
-    [SerializeField] private float shownY = 0f;
-
-    private enum PanelState { Hidden, Showing, Visible, Hiding }
-    private PanelState state = PanelState.Hidden;
-    private Coroutine animCoroutine;
-
     private WorkStation currentStation;
     private readonly List<GameObject> spawnedButtons = new();
-
-    public bool IsVisible => state == PanelState.Visible || state == PanelState.Showing || state == PanelState.Hiding;
 
     /// <summary>
     /// True durante el frame en el que el panel se ha cerrado por un toque fuera.
@@ -33,13 +20,11 @@ public class RoomUpgradePanelUI : MonoBehaviour
     /// </summary>
     public static bool JustClosedThisFrame { get; private set; }
 
-    private void Awake()
+    protected override void Awake()
     {
         if (Instance != null) { Destroy(gameObject); return; }
         Instance = this;
-
-        panelRect.anchoredPosition = new Vector2(panelRect.anchoredPosition.x, hiddenY);
-        state = PanelState.Hidden;
+        base.Awake();
     }
 
     public void Show(WorkStation station)
@@ -49,9 +34,7 @@ public class RoomUpgradePanelUI : MonoBehaviour
         currentStation = station;
         PopulateButtons();
 
-        state = PanelState.Showing;
-        if (animCoroutine != null) StopCoroutine(animCoroutine);
-        animCoroutine = StartCoroutine(AnimateTo(shownY, () => state = PanelState.Visible));
+        AnimateToShown();
     }
 
     public void Hide()
@@ -61,13 +44,7 @@ public class RoomUpgradePanelUI : MonoBehaviour
         if (UpgradePanelUI.Instance != null && UpgradePanelUI.Instance.IsVisible)
             UpgradePanelUI.Instance.Hide();
 
-        if (animCoroutine != null) StopCoroutine(animCoroutine);
-        state = PanelState.Hiding;
-        animCoroutine = StartCoroutine(AnimateTo(hiddenY, () =>
-        {
-            state = PanelState.Hidden;
-            currentStation = null;
-        }));
+        AnimateToHidden(() => currentStation = null);
 
         CameraController.Instance?.Unlock();
     }
@@ -124,23 +101,9 @@ public class RoomUpgradePanelUI : MonoBehaviour
     {
         if (state != PanelState.Visible) return;
 
-        bool clicked = false;
-        Vector2 screenPos = Vector2.zero;
+        if (!TryGetClickScreenPos(out Vector2 screenPos)) return;
 
-        if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
-        {
-            clicked = true;
-            screenPos = Mouse.current.position.ReadValue();
-        }
-        else if (Touchscreen.current != null && Touchscreen.current.primaryTouch.press.wasPressedThisFrame)
-        {
-            clicked = true;
-            screenPos = Touchscreen.current.primaryTouch.position.ReadValue();
-        }
-
-        if (!clicked) return;
-
-        bool insideThis = RectTransformUtility.RectangleContainsScreenPoint(panelRect, screenPos, null);
+        bool insideThis = IsInsidePanel(screenPos);
         bool insideDetail = UpgradePanelUI.Instance != null && UpgradePanelUI.Instance.IsVisible &&
                              RectTransformUtility.RectangleContainsScreenPoint(UpgradePanelUI.Instance.PanelRect, screenPos, null);
 
@@ -154,22 +117,5 @@ public class RoomUpgradePanelUI : MonoBehaviour
     private void LateUpdate()
     {
         JustClosedThisFrame = false;
-    }
-
-    private IEnumerator AnimateTo(float targetY, System.Action onComplete)
-    {
-        float startY = panelRect.anchoredPosition.y;
-        float elapsed = 0f;
-
-        while (elapsed < animDuration)
-        {
-            elapsed += Time.deltaTime;
-            float t = Mathf.SmoothStep(0f, 1f, elapsed / animDuration);
-            panelRect.anchoredPosition = new Vector2(panelRect.anchoredPosition.x, Mathf.Lerp(startY, targetY, t));
-            yield return null;
-        }
-
-        panelRect.anchoredPosition = new Vector2(panelRect.anchoredPosition.x, targetY);
-        onComplete?.Invoke();
     }
 }

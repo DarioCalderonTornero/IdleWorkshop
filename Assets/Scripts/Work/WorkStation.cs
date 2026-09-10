@@ -27,8 +27,21 @@ public class WorkStation : MonoBehaviour
     private bool _isBusy;
     private readonly List<WorkTable> _unlockedDesks = new();
 
+    // Cache de la relación WorkDeskUnlockable → WorkTable, construida una
+    // sola vez en Awake para evitar GetComponent repetido en cada llamada.
+    private readonly Dictionary<WorkDeskUnlockable, WorkTable> _deskTables = new();
+
     public bool IsBusy => _isBusy;
     public ReceptionDesk ReceptionDesk => receptionDesk;
+
+    private void Awake()
+    {
+        foreach (var desk in workDesks)
+        {
+            if (desk == null) continue;
+            _deskTables[desk] = desk.GetComponent<WorkTable>();
+        }
+    }
 
     private void Start()
     {
@@ -58,8 +71,9 @@ public class WorkStation : MonoBehaviour
     // ── Registro de mesas ────────────────────────────────────────────
     private void RegisterDesk(WorkDeskUnlockable unlockable)
     {
-        WorkTable table = unlockable.GetComponent<WorkTable>();
-        if (table != null && !_unlockedDesks.Contains(table))
+        if (!_deskTables.TryGetValue(unlockable, out WorkTable table) || table == null) return;
+
+        if (!_unlockedDesks.Contains(table))
         {
             _unlockedDesks.Add(table);
             Debug.Log($"[WorkStation] Mesa registrada. Total activas: {_unlockedDesks.Count}");
@@ -92,8 +106,7 @@ public class WorkStation : MonoBehaviour
         int currentIndex = -1;
         for (int i = 0; i < workDesks.Count; i++)
         {
-            WorkTable table = workDesks[i].GetComponent<WorkTable>();
-            if (table == current)
+            if (_deskTables.TryGetValue(workDesks[i], out WorkTable table) && table == current)
             {
                 currentIndex = i;
                 break;
@@ -105,7 +118,7 @@ public class WorkStation : MonoBehaviour
         for (int i = currentIndex + 1; i < workDesks.Count; i++)
         {
             if (!workDesks[i].IsUnlocked) continue;
-            return workDesks[i].GetComponent<WorkTable>();
+            return _deskTables.TryGetValue(workDesks[i], out WorkTable nextTable) ? nextTable : null;
         }
 
         return null;
@@ -133,8 +146,8 @@ public class WorkStation : MonoBehaviour
 
         foreach (var desk in workDesks)
         {
-            WorkTable table = desk.GetComponent<WorkTable>();
-            table?.ApplyZoneMultipliers(timeMultiplier, rewardMultiplier);
+            if (_deskTables.TryGetValue(desk, out WorkTable table))
+                table?.ApplyZoneMultipliers(timeMultiplier, rewardMultiplier);
         }
     }
 

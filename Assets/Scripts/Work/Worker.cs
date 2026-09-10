@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿// Worker.cs
+using System.Collections;
 using UnityEngine;
 
 /// <summary>
@@ -21,6 +22,11 @@ public class Worker : WorkerBase
     {
         _myTable = myTable;
         _workStation = workStation;
+
+        // La posición idle es el PlayerSlot de la propia mesa: al ser Worker
+        // un prefab anidado dentro de WorkDesk, no puede referenciarlo por
+        // Inspector (contextos de prefab distintos), así que se asigna aquí.
+        idlePosition = myTable.PlayerSlotTransform;
 
         if (idlePosition != null)
             transform.position = idlePosition.position;

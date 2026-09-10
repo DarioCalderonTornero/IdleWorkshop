@@ -1,3 +1,4 @@
+// Receptionist.cs
 using System.Collections;
 using UnityEngine;
 
@@ -16,6 +17,11 @@ public class Receptionist : WorkerBase
     {
         _receptionDesk = receptionDesk;
         _workStation = workStation;
+
+        // Misma razón que en Worker.Init: Receptionist es un prefab anidado
+        // dentro de ReceptionDesk y no puede referenciar su PlayerPoint por
+        // Inspector, así que se asigna aquí en tiempo de ejecución.
+        idlePosition = receptionDesk.PlayerPointTransform;
 
         if (idlePosition != null)
             transform.position = idlePosition.position;

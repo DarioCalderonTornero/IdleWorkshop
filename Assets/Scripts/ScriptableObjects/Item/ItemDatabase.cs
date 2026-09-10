@@ -58,4 +58,16 @@ public class ItemDatabase : ScriptableObject
 
         return ItemRarity.Legendary;
     }
+
+#if UNITY_EDITOR
+    private void OnValidate()
+    {
+        float total = chanceCommon + chanceUncommon + chanceRare + chanceEpic + chanceLegendary;
+
+        if (Mathf.Abs(total - 100f) > 0.01f)
+        {
+            Debug.LogWarning($"[ItemDatabase] Las probabilidades de rareza en '{name}' suman {total}, no 100.");
+        }
+    }
+#endif
 }

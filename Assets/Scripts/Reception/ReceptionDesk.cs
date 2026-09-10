@@ -1,4 +1,5 @@
-﻿using System;
+﻿// ReceptionDesk.cs
+using System;
 using UnityEngine;
 
 public class ReceptionDesk : MonoBehaviour
@@ -13,6 +14,10 @@ public class ReceptionDesk : MonoBehaviour
     public Vector3 PlayerPointPos => playerPoint.position;
     public Vector3 ObjectPointPos => objectPoint.position;
     public Vector3 FinalBoxPointPos => finalBoxPoint.position;
+
+    // Expuesto para que el Receptionist pueda usar este mismo Transform
+    // como su posición idle (ver Receptionist.Init).
+    public Transform PlayerPointTransform => playerPoint;
 
     // ── Slot de entrada: objeto dejado por el cliente, esperando al Receptionist ──
     private ItemDefinition _pendingItem;

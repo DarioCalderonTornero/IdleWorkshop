@@ -8,7 +8,7 @@ public class CoinUI : MonoBehaviour
     private void Start()
     {
         EconomyManager.Instance.OnCoinsChanged += EconomyManager_OnCoinsChanged;
-        coinText.text = CurrencyFormatter.Format(EconomyManager.Instance.GetCurrentCoins());
+        coinText.text = CurrencyFormatter.Format(EconomyManager.Instance.CurrentCoins);
     }
 
     private void EconomyManager_OnCoinsChanged(double obj)
