@@ -15,7 +15,7 @@ MonoBehaviour:
   itemName: Casco
   description: Un viejo casco
   itemPrefab: {fileID: 504316478351979113, guid: 215427961d89dc840b649bc474a96c8d, type: 3}
-  sprite: {fileID: 10911, guid: 0000000000000000f000000000000000, type: 0}
+  sprite: {fileID: 21300000, guid: 2f2ca9a04bd41b144a97ceaaab28e648, type: 3}
   displayScale: {x: 1, y: 1}
   rarity: 0
   baseRepairTime: 5

@@ -10,6 +10,11 @@ public class StarPopupUI : MonoBehaviour
 
     public void Play()
     {
+        // El prefab viene con sortingOrder 0, el mismo que los suelos, así que
+        // el texto quedaba tapado por mesas, trabajadores y objetos.
+        if (label != null && label.TryGetComponent(out Renderer labelRenderer))
+            labelRenderer.sortingOrder = SortingOrders.Popup;
+
         StartCoroutine(AnimateRoutine());
     }
 

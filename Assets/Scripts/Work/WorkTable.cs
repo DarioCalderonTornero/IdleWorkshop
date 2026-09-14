@@ -3,14 +3,31 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class WorkTable : MonoBehaviour
+/// <summary>
+/// Una mesa del taller. Tiene dos zonas: la de espera, donde los objetos
+/// aguardan su turno, y la parte contraria, donde quedan los ya terminados si
+/// esta resulta ser la última mesa desbloqueada.
+///
+/// La mesa en sí es el contenedor de entrada (implementa IItemContainer): lo
+/// que se le "entrega" cae en la zona de espera.
+/// </summary>
+public class WorkTable : MonoBehaviour, IItemContainer
 {
-    [Tooltip("Punto donde el jugador se para mientras trabaja")]
+    [Header("Puntos")]
+    [Tooltip("Punto donde el trabajador se queda de pie mientras trabaja")]
     [SerializeField] private Transform playerSlot;
-    [Tooltip("Punto encima de la mesa donde se deposita el objeto")]
+    [Tooltip("Punto encima de la mesa donde se procesa el objeto")]
     [SerializeField] private Transform itemSlot;
-    [Tooltip("Punto donde se acumulan los objetos pendientes (caja de entrada)")]
+    [Tooltip("Punto de referencia de la mesa, usado si no hay zona de espera")]
     [SerializeField] private Transform boxPoint;
+
+    [Header("Zonas de la mesa")]
+    [Tooltip("Zona de espera: aquí se acumulan los objetos pendientes de procesar")]
+    [SerializeField] private ItemStack inStack;
+
+    [Tooltip("Parte contraria de la mesa: aquí quedan los terminados cuando esta " +
+             "es la última mesa desbloqueada, a la espera de que pase el carrito")]
+    [SerializeField] private ItemStack outStack;
 
     [Header("Worker propio de esta mesa")]
     [SerializeField] private Worker worker;
@@ -29,17 +46,8 @@ public class WorkTable : MonoBehaviour
 
     private float _currentStarChance;
 
-    // ── Cola de ítems pendientes ────────────────────────────────────
-    private readonly Queue<ItemDefinition> _pendingItems = new();
+    /// <summary>Ha llegado trabajo a la zona de espera.</summary>
     public event Action OnItemEnqueued;
-
-    [Header("Visual de la caja (opcional)")]
-    [SerializeField] private SpriteRenderer boxRenderer;
-    [SerializeField] private Sprite boxEmptySprite;
-    [SerializeField] private Sprite boxPartialSprite;
-    [SerializeField] private Sprite boxFullSprite;
-    [Tooltip("A partir de cuántos ítems acumulados se considera 'llena'")]
-    [SerializeField] private int boxFullThreshold = 5;
 
     void Awake()
     {
@@ -52,45 +60,45 @@ public class WorkTable : MonoBehaviour
     {
         if (worker != null)
             worker.Init(this, GetComponentInParent<WorkStation>());
-
-        UpdateBoxVisual();
     }
 
     public Vector3 PlayerSlotPos => playerSlot.position;
     public Vector3 ItemSlotPos => itemSlot.position;
-    public Vector3 BoxPointPos => boxPoint.position;
+    public Vector3 BoxPointPos => boxPoint != null ? boxPoint.position : transform.position;
 
     // Expuesto para que el Worker propio de esta mesa pueda usar este
     // mismo Transform como su posición idle (ver Worker.Init).
     public Transform PlayerSlotTransform => playerSlot;
 
-    // ── Cola ─────────────────────────────────────────────────────────
-    public void EnqueueItem(ItemDefinition item)
+    /// <summary>Parte contraria de la mesa. Null si esta mesa no tiene salida.</summary>
+    public ItemStack OutStack => outStack;
+
+    // ── IItemContainer: la mesa es su propia zona de espera ───────────
+    public int Count => inStack != null ? inStack.Count : 0;
+    public int Capacity => inStack != null ? inStack.Capacity : 0;
+    public bool HasSpace => inStack == null || inStack.HasSpace;
+    public bool IsFull => inStack != null && inStack.IsFull;
+    public Vector3 AccessPointPos => inStack != null ? inStack.AccessPointPos : BoxPointPos;
+    public Vector3 ContentsPos => inStack != null ? inStack.ContentsPos : BoxPointPos;
+
+    public bool TryEnqueue(ItemOrder order)
     {
-        _pendingItems.Enqueue(item);
-        UpdateBoxVisual();
+        if (order == null || inStack == null) return false;
+        if (!inStack.TryEnqueue(order)) return false;
+
         OnItemEnqueued?.Invoke();
+        return true;
     }
 
-    public bool TryDequeueItem(out ItemDefinition item)
+    public bool TryDequeue(out ItemOrder order)
     {
-        bool success = _pendingItems.TryDequeue(out item);
-        if (success) UpdateBoxVisual();
-        return success;
-    }
+        if (inStack == null)
+        {
+            order = null;
+            return false;
+        }
 
-    private void UpdateBoxVisual()
-    {
-        if (boxRenderer == null) return;
-
-        int count = _pendingItems.Count;
-
-        if (count <= 0)
-            boxRenderer.sprite = boxEmptySprite;
-        else if (count >= boxFullThreshold)
-            boxRenderer.sprite = boxFullSprite;
-        else
-            boxRenderer.sprite = boxPartialSprite;
+        return inStack.TryDequeue(out order);
     }
 
     // ── Cálculo de tiempo/recompensa ──────────────────────────────────

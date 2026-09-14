@@ -3,8 +3,14 @@ using UnityEngine;
 
 public class WorkStation : MonoBehaviour
 {
-    [Header("Mesa de recepción")]
+    [Header("Mesa de entrega (el cliente deja el objeto)")]
     [SerializeField] private ReceptionDesk receptionDesk;
+
+    [Header("Mesa de recogida (el cliente recoge el objeto restaurado)")]
+    [SerializeField] private PickupDesk pickupDesk;
+
+    [Header("Transportistas con carrito")]
+    [SerializeField] private List<CartWorker> cartWorkers = new();
 
     [Header("Mesas de trabajo en orden")]
     [SerializeField] private List<WorkDeskUnlockable> workDesks;
@@ -33,6 +39,8 @@ public class WorkStation : MonoBehaviour
 
     public bool IsBusy => _isBusy;
     public ReceptionDesk ReceptionDesk => receptionDesk;
+    public PickupDesk PickupDesk => pickupDesk;
+    public IReadOnlyList<CartWorker> CartWorkers => cartWorkers;
 
     private void Awake()
     {
@@ -45,16 +53,25 @@ public class WorkStation : MonoBehaviour
 
     private void Start()
     {
-        Receptionist receptionist = receptionDesk.GetComponentInChildren<Receptionist>();
-        if (receptionist != null)
-            receptionist.Init(receptionDesk, this);
+        if (receptionDesk == null)
+        {
+            Debug.LogWarning($"[WorkStation] {name} no tiene ReceptionDesk asignada.", this);
+        }
         else
-            Debug.LogWarning("[WorkStation] No se encontró ningún Receptionist dentro de ReceptionDesk.");
+        {
+            Receptionist receptionist = receptionDesk.GetComponentInChildren<Receptionist>();
+            if (receptionist != null)
+                receptionist.Init(receptionDesk, this);
+            else
+                Debug.LogWarning("[WorkStation] No se encontró ningún Receptionist dentro de ReceptionDesk.");
+        }
 
         // En Start() para garantizar que WorkDeskUnlockable.Awake() ya ha
         // establecido IsUnlocked (el orden de Awake entre hermanos no está garantizado).
         foreach (var desk in workDesks)
         {
+            if (desk == null) continue;
+
             if (desk.IsUnlocked)
                 RegisterDesk(desk);
             else
@@ -86,6 +103,45 @@ public class WorkStation : MonoBehaviour
     {
         foreach (var desk in workDesks)
             if (!desk.IsUnlocked) return desk;
+        return null;
+    }
+
+    /// <summary>
+    /// La última mesa desbloqueada en el orden de workDesks. Es la que hace de
+    /// salida del taller: sus objetos terminados esperan al carrito.
+    /// </summary>
+    public WorkTable GetLastUnlockedDesk()
+    {
+        WorkTable last = null;
+
+        foreach (var desk in workDesks)
+        {
+            if (desk == null || !desk.IsUnlocked) continue;
+
+            if (_deskTables.TryGetValue(desk, out WorkTable table) && table != null)
+                last = table;
+        }
+
+        return last;
+    }
+
+    /// <summary>
+    /// La primera mesa que tenga objetos terminados esperando en su parte
+    /// contraria. Al desbloquear una mesa nueva la salida del taller se muda a
+    /// ella, así que sin esto los objetos que hubiera en la mesa anterior no
+    /// los recogería nadie nunca.
+    /// </summary>
+    public WorkTable GetDeskWithPendingOutput()
+    {
+        foreach (var desk in workDesks)
+        {
+            if (desk == null) continue;
+            if (!_deskTables.TryGetValue(desk, out WorkTable table) || table == null) continue;
+
+            if (table.OutStack != null && table.OutStack.Count > 0)
+                return table;
+        }
+
         return null;
     }
 
@@ -154,16 +210,14 @@ public class WorkStation : MonoBehaviour
     // ── API pública ──────────────────────────────────────────────────
 
     /// <summary>
-    /// Llamado por el worker de la última mesa al entregar en la caja final.
-    /// El cliente ya se fue al entregar el objeto en recepción, así que no
-    /// hay a quién avisar por ahora — el objeto simplemente completa su
-    /// recorrido. Punto de enganche para una futura cola de recogida.
+    /// Llamado por el worker de la última mesa cuando deja el objeto terminado
+    /// en la zona de salida. A partir de ahí el objeto ya no es asunto del
+    /// taller: el carrito de salida lo lleva a la mesa de recogida y el cliente
+    /// lo recoge de ahí.
     /// </summary>
     public void OnWorkCompleted()
     {
-        // Punto de enganche para futuras estadísticas/eventos cuando se
-        // complete un trabajo. La entrega al cliente ya ocurre directamente
-        // entre Worker y CustomerManager, antes de llegar aquí.
+        // Punto de enganche para estadísticas o eventos de "objeto terminado".
     }
 
     public WorkStationSaveData GetSaveData()

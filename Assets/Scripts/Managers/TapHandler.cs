@@ -1,11 +1,11 @@
 using UnityEngine;
 
 /// <summary>
-/// Centraliza toda la lÛgica de tap en la escena.
+/// Centraliza toda la l√≥gica de tap en la escena.
 /// En vez de depender de la action "Tap" del Input Actions asset (que compite
 /// con la action "Drag" por el mismo control y da lugar a comportamiento
-/// inconsistente), decide por sÌ mismo si un gesto fue un toque o un arrastre
-/// comparando la posiciÛn al iniciar y al soltar el press.
+/// inconsistente), decide por s√≠ mismo si un gesto fue un toque o un arrastre
+/// comparando la posici√≥n al iniciar y al soltar el press.
 /// </summary>
 public class TapHandler : MonoBehaviour
 {
@@ -15,8 +15,8 @@ public class TapHandler : MonoBehaviour
     [SerializeField] private Camera mainCamera;
     [SerializeField] private LayerMask tapLayers;
 
-    [Header("DetecciÛn de tap")]
-    [Tooltip("Distancia m·xima en pÌxeles de pantalla para considerar el gesto un tap y no un arrastre.")]
+    [Header("Detecci√≥n de tap")]
+    [Tooltip("Distancia m√°xima en p√≠xeles de pantalla para considerar el gesto un tap y no un arrastre.")]
     [SerializeField] private float maxTapDistance = 20f;
 
     private bool _isPressed;
@@ -82,7 +82,7 @@ public class TapHandler : MonoBehaviour
         if (RoomUpgradePanelUI.Instance != null && RoomUpgradePanelUI.Instance.IsVisible) return;
         if (RoomUpgradePanelUI.JustClosedThisFrame) return;
 
-        // Boost de tap a todos los workers activos ó mec·nica core, independiente de la UI de mejoras.
+        // Boost de tap a todos los workers activos ‚Äî mec√°nica core, independiente de la UI de mejoras.
         WorkerRegistry.Instance?.ApplyTapBoostToAll(0.1f);
 
         Vector2 worldPos = mainCamera.ScreenToWorldPoint(screenPosition);
@@ -90,11 +90,12 @@ public class TapHandler : MonoBehaviour
 
         if (hit.collider == null) return;
 
-        WorkStation station = hit.collider.GetComponent<WorkStation>()
-                            ?? hit.collider.GetComponentInParent<WorkStation>();
-        if (station == null) return;
+        // Cada zona mejorable lleva su propio panel: el taller sus mesas, la
+        // recepci√≥n sus carritos, los mostradores sus recepcionistas.
+        UpgradeZone zone = hit.collider.GetComponentInParent<UpgradeZone>();
+        if (zone == null) return;
 
-        CameraController.Instance?.FocusOn(station.CameraFocusPosition);
-        RoomUpgradePanelUI.Instance?.Show(station);
+        CameraController.Instance?.FocusOn(zone.CameraFocusPosition);
+        RoomUpgradePanelUI.Instance?.Show(zone);
     }
 }

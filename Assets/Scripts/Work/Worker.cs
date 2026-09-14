@@ -1,18 +1,26 @@
-﻿// Worker.cs
+// Worker.cs
 using System.Collections;
 using UnityEngine;
 
 /// <summary>
-/// Trabajador de una mesa concreta. Espera a que su mesa (WorkTable) tenga
-/// un ítem en cola, lo recoge de su propio BoxPoint, lo procesa, y lo
-/// transporta hasta la siguiente mesa desbloqueada. Si es la última mesa,
-/// camina hasta el primer cliente esperando en la cola de recogida y le
-/// entrega el objeto directamente en la mano.
+/// Trabajador de una mesa concreta. No se mueve de su puesto: es el objeto el
+/// que va solo, dando un saltito de la zona de espera al punto de proceso y,
+/// al terminar, a la mesa siguiente.
+///
+/// Si esta es la última mesa desbloqueada, el objeto salta a la parte contraria
+/// de la mesa y se queda ahí hasta que pase el carrito de salida.
 /// </summary>
 public class Worker : WorkerBase
 {
     [Header("UI")]
     [SerializeField] private RepairProgressUI progressUI;
+
+    [Header("Saltito del objeto")]
+    [Tooltip("Cuánto dura el desplazamiento del objeto, en segundos")]
+    [SerializeField] private float hopDuration = 0.35f;
+
+    [Tooltip("Altura del arco que describe el objeto al saltar")]
+    [SerializeField] private float hopHeight = 0.35f;
 
     private WorkTable _myTable;
     private WorkStation _workStation;
@@ -47,74 +55,82 @@ public class Worker : WorkerBase
     private void TryStartNextItem()
     {
         if (_isWorking) return;
-        if (!_myTable.TryDequeueItem(out ItemDefinition itemDef)) return;
+        if (!_myTable.TryDequeue(out ItemOrder order)) return;
 
         _isWorking = true;
-        StartCoroutine(WorkRoutine(itemDef));
+        StartCoroutine(WorkRoutine(order));
     }
 
-    private IEnumerator WorkRoutine(ItemDefinition itemDef)
+    private IEnumerator WorkRoutine(ItemOrder order)
     {
-        // 1. Ir a la caja de entrada de esta mesa y recoger (instanciar) el objeto
-        yield return MoveTo(_myTable.BoxPointPos);
+        // 1. El objeto sale de la zona de espera y salta al punto de proceso
+        GameObject itemGO = ItemVisual.Spawn(order.Definition);
 
-        GameObject itemGO = SpawnItemVisual(itemDef);
-        PickUpInstant(itemGO);
+        if (itemGO == null)
+        {
+            Debug.LogError($"[Worker] '{order.Definition.itemName}' no tiene itemPrefab: no se puede procesar.", this);
+            _isWorking = false;
+            yield break;
+        }
 
-        // 2. Llevarlo al puesto de trabajo y procesarlo
-        yield return MoveTo(_myTable.PlayerSlotPos);
-        PutDown(itemGO, _myTable.ItemSlotPos);
+        Vector3 waitingPos = _myTable.ContentsPos;
+        itemGO.transform.position = waitingPos;
 
+        yield return ItemHop.Move(itemGO.transform, waitingPos, _myTable.ItemSlotPos, hopDuration, hopHeight);
+
+        // 2. Procesarlo
         bool gotStar = false;
-        yield return ProcessRoutine(itemDef, result => gotStar = result);
+        yield return ProcessRoutine(order.Definition, result => gotStar = result);
 
-        BestiaryManager.Instance?.RegisterItem(itemDef, gotStar ? 1 : 0);
+        BestiaryManager.Instance?.RegisterItem(order.Definition, gotStar ? 1 : 0);
 
-        yield return PickUpAnim(itemGO);
+        // 3. Saltar al destino: la mesa siguiente, o la parte contraria de esta
+        IItemContainer destination = ResolveDestination(out bool isWorkshopExit);
 
-        // 3. Determinar destino: la siguiente mesa desbloqueada, o entrega directa al cliente
-        WorkTable nextTable = _workStation.GetNextUnlockedDesk(_myTable);
-
-        if (nextTable != null)
+        if (destination == null)
         {
-            yield return MoveTo(nextTable.BoxPointPos);
-            nextTable.EnqueueItem(itemDef);
-            Destroy(itemGO);
+            // Sin sitio donde dejarlo el objeto se perdería, y con él su dueño
+            // esperando para siempre. Mejor dejarlo encima de la mesa y avisar.
+            Debug.LogError(
+                $"[Worker] {name}: la mesa no tiene zona de terminados ni mesa siguiente. " +
+                "Asigna 'outStack' en la WorkTable o el objeto no llegará nunca al cliente.", this);
+
+            _isWorking = false;
+            yield break;
         }
-        else
-        {
-            // Espera hasta que haya un cliente esperando en la cola de recogida
-            Vector3 pickupPos;
-            while (!CustomerManager.Instance.TryGetFirstPickupPosition(out pickupPos))
-                yield return null;
 
-            yield return MoveTo(pickupPos);
+        yield return ItemHop.Move(
+            itemGO.transform, _myTable.ItemSlotPos, destination.ContentsPos, hopDuration, hopHeight);
 
-            itemGO.transform.SetParent(null);
-            CustomerManager.Instance.DeliverToFirstPickupCustomer(itemGO);
+        while (!destination.HasSpace)
+            yield return null;
 
+        destination.TryEnqueue(order);
+        Destroy(itemGO);
+
+        if (isWorkshopExit)
             _workStation.OnWorkCompleted();
-        }
-
-        // 4. Volver a esperar en su puesto
-        yield return MoveTo(idlePosition.position);
 
         _isWorking = false;
         TryStartNextItem();
     }
 
-    private GameObject SpawnItemVisual(ItemDefinition itemDef)
+    /// <summary>
+    /// La siguiente mesa desbloqueada; si no hay ninguna, la parte contraria de
+    /// esta mesa, que es de donde recoge el carrito de salida.
+    /// </summary>
+    private IItemContainer ResolveDestination(out bool isWorkshopExit)
     {
-        GameObject go = Instantiate(itemDef.itemPrefab);
+        WorkTable nextTable = _workStation.GetNextUnlockedDesk(_myTable);
 
-        if (go.TryGetComponent<SpriteRenderer>(out var sr))
+        if (nextTable != null)
         {
-            sr.sprite = itemDef.sprite;
-            sr.sortingOrder = 2;
+            isWorkshopExit = false;
+            return nextTable;
         }
 
-        go.transform.localScale = new Vector3(itemDef.displayScale.x, itemDef.displayScale.y, 1f);
-        return go;
+        isWorkshopExit = true;
+        return _myTable.OutStack;
     }
 
     private IEnumerator ProcessRoutine(ItemDefinition itemDef, System.Action<bool> onComplete)

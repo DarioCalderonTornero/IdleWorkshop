@@ -1,7 +1,11 @@
-﻿// ReceptionDesk.cs
+// ReceptionDesk.cs
 using System;
 using UnityEngine;
 
+/// <summary>
+/// Mostrador de entrega: el cliente deja aquí su objeto y el recepcionista lo
+/// pasa a la bolsa del escritorio de detrás.
+/// </summary>
 public class ReceptionDesk : MonoBehaviour
 {
     [Header("Puntos de referencia")]
@@ -9,6 +13,25 @@ public class ReceptionDesk : MonoBehaviour
     [SerializeField] private Transform playerPoint;
     [SerializeField] private Transform objectPoint;
     [SerializeField] private Transform finalBoxPoint;
+
+    [Header("Escritorio trasero (paso 3)")]
+    [Tooltip("Bolsa donde el recepcionista acumula los encargos y de la que carga el carrito. " +
+             "Si se deja vacía, el recepcionista los lleva directamente a la primera mesa.")]
+    [SerializeField] private ItemStack backStack;
+    public ItemStack BackStack => backStack;
+
+    [Header("Progreso")]
+    [Tooltip("Círculo que se llena mientras el cliente entrega su objeto en el mostrador")]
+    [SerializeField] private RepairProgressUI progressUI;
+    public RepairProgressUI ProgressUI => progressUI;
+
+    [Header("Velocidad de atención")]
+    [Tooltip("Lo que baja la mejora de este mostrador. Si es null, no se mejora nada")]
+    [SerializeField] private ServiceSpeed serviceSpeed;
+
+    /// <summary>Lo que tarda de verdad una acción en este mostrador, ya mejorada.</summary>
+    public float ServiceTime(float baseDuration) =>
+        serviceSpeed != null ? serviceSpeed.Apply(baseDuration) : baseDuration;
 
     public Vector3 CustomerPointPos => customerPoint.position;
     public Vector3 PlayerPointPos => playerPoint.position;
@@ -20,7 +43,7 @@ public class ReceptionDesk : MonoBehaviour
     public Transform PlayerPointTransform => playerPoint;
 
     // ── Slot de entrada: objeto dejado por el cliente, esperando al Receptionist ──
-    private ItemDefinition _pendingItem;
+    private ItemOrder _pendingOrder;
     private GameObject _pendingItemGO;
     private bool _hasPendingItem;
 
@@ -29,30 +52,30 @@ public class ReceptionDesk : MonoBehaviour
     public event Action OnItemWaiting;
     public event Action OnSlotFreed;
 
-    public bool TryDepositFromCustomer(ItemDefinition itemDef, GameObject itemGO)
+    public bool TryDepositFromCustomer(ItemOrder order, GameObject itemGO)
     {
         if (_hasPendingItem) return false;
 
-        _pendingItem = itemDef;
+        _pendingOrder = order;
         _pendingItemGO = itemGO;
         _hasPendingItem = true;
         OnItemWaiting?.Invoke();
         return true;
     }
 
-    public bool TryTakePendingItem(out ItemDefinition itemDef, out GameObject itemGO)
+    public bool TryTakePendingItem(out ItemOrder order, out GameObject itemGO)
     {
         if (!_hasPendingItem)
         {
-            itemDef = null;
+            order = null;
             itemGO = null;
             return false;
         }
 
-        itemDef = _pendingItem;
+        order = _pendingOrder;
         itemGO = _pendingItemGO;
         _hasPendingItem = false;
-        _pendingItem = null;
+        _pendingOrder = null;
         _pendingItemGO = null;
         OnSlotFreed?.Invoke();
         return true;

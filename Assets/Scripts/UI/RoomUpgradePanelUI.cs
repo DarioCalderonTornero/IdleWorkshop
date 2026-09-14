@@ -10,7 +10,7 @@ public class RoomUpgradePanelUI : SlidingPanelUI
     [SerializeField] private Transform buttonsContainer;
     [SerializeField] private GameObject buttonPrefab;
 
-    private WorkStation currentStation;
+    private UpgradeZone currentZone;
     private readonly List<GameObject> spawnedButtons = new();
 
     /// <summary>
@@ -27,11 +27,11 @@ public class RoomUpgradePanelUI : SlidingPanelUI
         base.Awake();
     }
 
-    public void Show(WorkStation station)
+    public void Show(UpgradeZone zone)
     {
-        if (state == PanelState.Visible && currentStation == station) return;
+        if (state == PanelState.Visible && currentZone == zone) return;
 
-        currentStation = station;
+        currentZone = zone;
         PopulateButtons();
 
         AnimateToShown();
@@ -44,14 +44,14 @@ public class RoomUpgradePanelUI : SlidingPanelUI
         if (UpgradePanelUI.Instance != null && UpgradePanelUI.Instance.IsVisible)
             UpgradePanelUI.Instance.Hide();
 
-        AnimateToHidden(() => currentStation = null);
+        AnimateToHidden(() => currentZone = null);
 
         CameraController.Instance?.Unlock();
     }
 
     public void RefreshButtons()
     {
-        if (currentStation == null) return;
+        if (currentZone == null) return;
         PopulateButtons();
     }
 
@@ -61,9 +61,9 @@ public class RoomUpgradePanelUI : SlidingPanelUI
             Destroy(go);
         spawnedButtons.Clear();
 
-        if (currentStation == null) return;
+        if (currentZone == null) return;
 
-        foreach (var element in currentStation.UpgradeElements)
+        foreach (var element in currentZone.UpgradeElements)
         {
             GameObject buttonGO = Instantiate(buttonPrefab, buttonsContainer);
             RoomUpgradeButtonUI buttonUI = buttonGO.GetComponent<RoomUpgradeButtonUI>();
