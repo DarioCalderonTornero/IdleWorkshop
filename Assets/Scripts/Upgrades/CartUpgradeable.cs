@@ -9,12 +9,12 @@ using UnityEngine;
 /// </summary>
 public class CartUpgradeable : UpgradeableBase
 {
-    [Header("Efecto por nivel")]
-    [Tooltip("Incremento de velocidad por nivel (ej: 0.12 = +12% por nivel)")]
-    [SerializeField] private float moveSpeedMultiplierPerLevel = 0.12f;
-
     [Tooltip("El carrito a mejorar. Si es null, se busca en este GameObject y sus hijos")]
     [SerializeField] private CartWorker cartWorker;
+
+    public override System.Type ExpectedDataType => typeof(CartUpgradeData);
+
+    private CartUpgradeData Data => RequireData<CartUpgradeData>();
 
     protected override void Awake()
     {
@@ -25,13 +25,16 @@ public class CartUpgradeable : UpgradeableBase
 
         if (cartWorker == null)
             Debug.LogWarning($"[CartUpgradeable] {name}: no encuentro ningún CartWorker que mejorar.", this);
+
+        _ = Data;
     }
 
     protected override void OnUpgraded(int newLevel)
     {
-        if (cartWorker == null) return;
+        CartUpgradeData data = Data;
+        if (cartWorker == null || data == null) return;
 
-        float multiplier = 1f + newLevel * moveSpeedMultiplierPerLevel;
+        float multiplier = 1f + newLevel * data.moveSpeedMultiplierPerLevel;
         cartWorker.ApplyMoveSpeedMultiplier(multiplier);
     }
 }

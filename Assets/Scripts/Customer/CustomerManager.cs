@@ -52,6 +52,13 @@ public class CustomerManager : MonoBehaviour
              "Sin esto no se sienta nadie: todos se marchan y vuelven")]
     [SerializeField] private WaitingArea waitingArea;
 
+    [Tooltip("Probabilidad de que un cliente que acaba de entregar se quede a esperar " +
+             "sentado, si es que queda algún asiento. El resto se marcha del taller y " +
+             "vuelve cuando su objeto está listo. A 1 se sientan todos los que pueden, " +
+             "a 0 no se sienta nadie")]
+    [Range(0f, 1f)]
+    [SerializeField] private float sitChance = 0.5f;
+
     [Header("Spawn y salida")]
     [SerializeField] private GameObject customerPrefab;
     [SerializeField] private ItemDatabase itemDatabase;
@@ -248,17 +255,22 @@ public class CustomerManager : MonoBehaviour
     }
 
     /// <summary>
-    /// El cliente acaba de entregar. Sale de la cola de entrega y se sienta a
-    /// esperar si queda algún asiento; si no, se marcha del mapa. En ambos
-    /// casos vuelve cuando su objeto llegue a la mesa de recogida.
+    /// El cliente acaba de entregar. Sale de la cola de entrega y o se queda
+    /// esperando sentado, o se marcha del taller; en ambos casos vuelve cuando
+    /// su objeto llegue a la mesa de recogida.
+    ///
+    /// Quedarse no es obligatorio aunque haya sitio: se decide al azar con
+    /// <see cref="sitChance"/>. Si todos los que pueden se sentaran, la sala se
+    /// llenaría siempre igual y se vería demasiado ordenado.
     /// </summary>
     public void OnCustomerDelivered(Customer customer)
     {
         RemoveFromEntryQueue(customer);
 
         Ticket ticket = GetTicket(customer.TicketId);
+        bool feelsLikeSitting = Random.value < sitChance;
 
-        if (ticket != null && waitingArea != null &&
+        if (feelsLikeSitting && ticket != null && waitingArea != null &&
             waitingArea.TryClaimSeat(out int seatIndex, out Vector3 seatPos))
         {
             ticket.SeatIndex = seatIndex;

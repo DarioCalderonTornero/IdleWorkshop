@@ -98,13 +98,16 @@ public static class Taller1Builder
     private static readonly Vector2 CartBodyOffset = new(0f, -0.22f);
     private static readonly Vector2 CartBoxSize = new(0.62f, 0.40f);
 
-    // Los sacos: todos del mismo tamaño y capacidad, para que el lote que sale
-    // de recepción quepa entero en el carrito y luego en la mesa.
-    private const int BagCapacity = 5;
-    private static readonly Vector2 SackEmptySize = new(0.34f, 0.28f);
-    private static readonly Vector2 SackFullSize = new(0.52f, 0.46f);
-    private static readonly Color SackEmptyColor = new(0.42f, 0.72f, 0.42f);
-    private static readonly Color SackFullColor = new(0.15f, 0.52f, 0.18f);
+    // El único tope del circuito es el del carrito: dice cuántos encargos se
+    // lleva por viaje, y por tanto cuántos tienen que juntarse para que salga.
+    // Las bolsas fijas no tienen tope, así que van acumulando mientras el
+    // carrito está de viaje y la cola de clientes nunca se queda atascada.
+    private const int CartCapacity = 5;
+
+    // Los sacos no cambian de tamaño ni de color con la carga: solo dan el
+    // golpecito. Un tamaño y un color, iguales para todos.
+    private static readonly Vector2 SackSize = new(0.44f, 0.38f);
+    private static readonly Color SackColor = new(0.28f, 0.62f, 0.30f);
 
     // Puntos de atraque: el conjunto trabajador+carrito queda entero fuera del
     // mueble, y el objeto salva lo que falte dando un saltito.
@@ -135,8 +138,56 @@ public static class Taller1Builder
     // ── Sala de espera ────────────────────────────────────────────────
     // En el hueco vacío de la izquierda del hall. Ahí esperan sentados los
     // clientes que ya entregaron; quien no encuentra sitio se va y vuelve.
-    private static readonly float[] SeatColumns = { -2.85f, -1.95f };
+    // 3 columnas x 4 filas = los 12 asientos. Van de fuera hacia recepción y
+    // de arriba abajo; el orden en que aparecen lo decide BuildWaitingArea.
+    private static readonly float[] SeatColumns = { -3.00f, -2.10f, -1.20f };
     private static readonly float[] SeatRows = { -2.60f, -3.50f, -4.40f, -5.30f };
+
+    // Los asientos se compran; hasta entonces no se ven y nadie puede sentarse.
+    // Las monedas que suma cada nivel viven en SeatsUpgrade.asset, no aquí.
+    private const double SeatsUnlockCost = 500;
+
+    /// <summary>
+    /// Nivel al que aparece cada asiento. Al comprarlos sale el primero (nivel
+    /// 1) y los demás van saliendo con saltos de 2, 3, 6, 9... hasta 30.
+    /// Un umbral por asiento: son los mismos tramos que mueven la barra de
+    /// progreso del panel, así que lo que se ve y lo que marca la barra van
+    /// siempre a la par.
+    /// </summary>
+    private static readonly int[] SeatLevelThresholds =
+        { 1, 3, 6, 12, 21, 33, 48, 66, 87, 111, 138, 168 };
+
+    // ── Decoraciones ──────────────────────────────────────────────────
+    // Cada una suma monedas a cada cobro del taller y va apareciendo a
+    // trozos. Los umbrales son iguales para las cuatro decoraciones de 4
+    // piezas: la primera al comprarla y las demás a los niveles 5, 15 y 30.
+    private static readonly int[] DecorationThresholds = { 1, 5, 15, 30 };
+
+    // Taller (sala naranja). Las estanterías van pegadas al borde de arriba,
+    // a la izquierda de la mesa 2; las plantas, en la columna de la derecha.
+    // Ninguna se cruza con los atraques de los carritos.
+    private static readonly Vector2[] ShelfPieces =
+    {
+        new(-1.40f, 6.45f), new(-0.75f, 6.45f), new(-0.10f, 6.45f), new(0.55f, 6.45f),
+    };
+
+    private static readonly Vector2[] WorkshopPlantPieces =
+    {
+        new(4.72f, 3.05f), new(4.72f, 3.95f), new(4.72f, 4.85f), new(4.72f, 5.75f),
+    };
+
+    // Hall (zona azul). Las plantas a la derecha del carril de entrega; las
+    // lámparas en el hueco entre los asientos y el carril de recogida.
+    // Nada a y = -6.35: por ahí es por donde entran y salen los clientes.
+    private static readonly Vector2[] HallPlantPieces =
+    {
+        new(4.55f, -2.35f), new(4.55f, -3.35f), new(4.55f, -4.35f), new(4.55f, -5.35f),
+    };
+
+    private static readonly Vector2[] LampPieces =
+    {
+        new(-0.10f, -2.60f), new(-0.10f, -3.50f), new(-0.10f, -4.40f), new(-0.10f, -5.30f),
+    };
 
 
     // Zona naranja: la sala que se toca para abrir el panel de mejoras, y a
@@ -181,6 +232,11 @@ public static class Taller1Builder
             return;
         }
 
+        // Antes de tocar la escena: si algún asset de mejora no es del tipo que
+        // espera su componente, el cableado saldría a null y el panel de
+        // mejoras fallaría al abrirlo. Mejor no construir nada.
+        if (!UpgradeAssetsAreValid()) return;
+
         GameObject existing = GameObject.Find(RootName);
         if (existing != null)
         {
@@ -221,17 +277,26 @@ public static class Taller1Builder
         HallAnchors hall = BuildHall(root);
         WaitingArea waitingArea = BuildWaitingArea(root);
 
-        WireWorkStation(station, dropOff, pickup, desks, new List<CartWorker> { inCart, outCart }, root.transform);
+        // Decoraciones: suman monedas a cada cobro y van saliendo a trozos.
+        List<DecorationReveal> workshopDecorations = BuildWorkshopDecorations(root);
+        List<DecorationReveal> hallDecorations = BuildHallDecorations(root);
+
+        WireWorkStation(station, dropOff, pickup, desks,
+            new List<CartWorker> { inCart, outCart }, root.transform, workshopDecorations);
 
         // Las otras dos zonas mejorables: la sala amarilla mejora los carritos
-        // y los mostradores mejoran la velocidad de atención.
+        // y el hall mejora las recepciones y sus decoraciones.
         BuildCartZone(root, inCart, outCart);
         BuildReceptionZone(root,
             dropOff.GetComponent<ServiceSpeed>(),
-            pickup.GetComponent<ServiceSpeed>());
+            pickup.GetComponent<ServiceSpeed>(),
+            waitingArea,
+            hallDecorations);
 
         WireCustomerManager(dropOff, pickup, waitingArea, hall);
         WireUnlocker(station);
+
+        VerifyUpgradeablesWired(root);
 
         Selection.activeGameObject = root;
         EditorSceneMarkDirty();
@@ -261,7 +326,7 @@ public static class Taller1Builder
 
         // El carrito atraca al lado del escritorio, nunca encima.
         backStack = BuildStack(backDeskGO.transform, "MontonEntrada",
-            new Vector2(RightLaneX, BackDeskY + 0.05f), BackDeskDock, capacity: BagCapacity);
+            new Vector2(RightLaneX, BackDeskY + 0.05f), BackDeskDock);
 
         SerializedObject so = new(desk);
         so.FindProperty("customerPoint").objectReferenceValue = customerPoint;
@@ -328,7 +393,7 @@ public static class Taller1Builder
         // El carrito atraca por encima de la mesa, sin pisarla. Cómo llega
         // hasta aquí lo resuelve la red de navegación.
         stack = BuildStack(tableGO.transform, "MontonSalida",
-            new Vector2(LeftLaneX, PickupStackY + 0.05f), PickupDock, capacity: BagCapacity);
+            new Vector2(LeftLaneX, PickupStackY + 0.05f), PickupDock);
 
         // Recepcionista de devolución: el objeto salta del montón a sus manos
         // y de ahí al cliente. Se coloca igual que el de entrega, entre el
@@ -425,8 +490,8 @@ public static class Taller1Builder
         }
 
         // Zona de espera y parte contraria: los objetos van solos entre ellas.
-        ItemStack inStack = BuildStack(go.transform, "ZonaEspera", inPos, inDock, capacity: BagCapacity);
-        ItemStack outStack = BuildStack(go.transform, "ZonaTerminados", outPos, outDock, capacity: BagCapacity);
+        ItemStack inStack = BuildStack(go.transform, "ZonaEspera", inPos, inDock);
+        ItemStack outStack = BuildStack(go.transform, "ZonaTerminados", outPos, outDock);
 
         SerializedObject so = new(table);
         so.FindProperty("playerSlot").objectReferenceValue = playerPoint;
@@ -434,6 +499,7 @@ public static class Taller1Builder
         so.FindProperty("boxPoint").objectReferenceValue = boxPoint;
         so.FindProperty("inStack").objectReferenceValue = inStack;
         so.FindProperty("outStack").objectReferenceValue = outStack;
+        so.FindProperty("outStackPoof").objectReferenceValue = outStack.GetComponent<Poof>();
         so.FindProperty("worker").objectReferenceValue = worker;
         so.ApplyModifiedPropertiesWithoutUndo();
 
@@ -555,7 +621,7 @@ public static class Taller1Builder
         Cart cart = cartGO.AddComponent<Cart>();
         SerializedObject cartSo = new(cart);
         cartSo.FindProperty("sack").objectReferenceValue = cartSack;
-        cartSo.FindProperty("capacity").intValue = BagCapacity;
+        cartSo.FindProperty("capacity").intValue = CartCapacity;
         cartSo.ApplyModifiedPropertiesWithoutUndo();
 
         // El círculo de progreso va colgado del carrito y lo sigue.
@@ -633,43 +699,80 @@ public static class Taller1Builder
     }
 
     /// <summary>
-    /// <summary>
     /// La sala de espera: los asientos del hueco de la izquierda del hall,
     /// donde los clientes aguardan a que su objeto esté listo.
+    ///
+    /// El orden en que se crean es el orden en que van apareciendo al subir la
+    /// mejora, así que se llena por filas empezando por la de arriba (la que
+    /// está pegada a recepción) y de derecha a izquierda dentro de cada fila:
+    /// el primer asiento que se compra queda a la vista, junto al mostrador, y
+    /// la sala va creciendo hacia el fondo en vez de empezar por la esquina.
     /// </summary>
     private static WaitingArea BuildWaitingArea(GameObject root)
     {
-        GameObject group = NewChild(root.transform, "SalaEspera", Vector2.zero);
-
-        var seats = new List<Transform>();
-        int index = 0;
-
-        foreach (float x in SeatColumns)
+        // Los asientos son una decoración más: se compran, suman monedas y van
+        // apareciendo a trozos. Lo único suyo es que además reparten sitios.
+        DecorationReveal reveal = BuildDecoration(root, new DecorationSpec
         {
-            foreach (float y in SeatRows)
-            {
-                GameObject seat = NewChild(group.transform, $"Asiento{++index:00}", new Vector2(x, y));
-                AddSquare(seat, new Vector2(0.34f, 0.34f), new Color(0.35f, 0.42f, 0.55f), OrderFurniture);
+            ObjectName = "Asiento",
+            DisplayName = "Asientos",
+            Description = "Los clientes esperan sentados y, de paso, cada parte del proceso paga una moneda más por nivel.",
+            AssetPath = "Assets/ScriptableObjects/Upgrades/SeatsUpgrade.asset",
+            UnlockCost = SeatsUnlockCost,
+            Pieces = SeatPositions(),
+            PieceSize = new Vector2(0.34f, 0.34f),
+            PieceColor = new Color(0.35f, 0.42f, 0.55f),
+            Thresholds = SeatLevelThresholds,
+        });
 
-                // El cliente se sienta un poco por delante del asiento para
-                // que no lo tape del todo.
-                seats.Add(NewChild(seat.transform, "Sitio", new Vector2(x + 0.30f, y)).transform);
-            }
+        reveal.gameObject.name = "SalaEspera";
+
+        // Un sitio por asiento, un poco por delante para que el cliente no lo
+        // tape del todo. Van colgados del propio asiento, así que se esconden
+        // con él.
+        var seats = new List<Transform>();
+        Vector2[] positions = SeatPositions();
+
+        for (int i = 0; i < positions.Length; i++)
+        {
+            Transform piece = reveal.transform.GetChild(i);
+            seats.Add(NewChild(piece, "Sitio",
+                new Vector2(positions[i].x + 0.30f, positions[i].y)).transform);
         }
 
-        WaitingArea area = group.AddComponent<WaitingArea>();
+        WaitingArea area = reveal.gameObject.AddComponent<WaitingArea>();
         SerializedObject so = new(area);
         SetObjectList(so.FindProperty("seats"), seats);
+        so.FindProperty("reveal").objectReferenceValue = reveal;
         so.ApplyModifiedPropertiesWithoutUndo();
 
         return area;
+    }
+
+    /// <summary>
+    /// Las posiciones de los 12 asientos, en el orden en que van apareciendo:
+    /// por filas empezando por la de arriba (la pegada a recepción) y de
+    /// derecha a izquierda dentro de cada fila. Así el primero que compras
+    /// queda a la vista junto al mostrador y la sala crece hacia el fondo, en
+    /// vez de empezar por la esquina.
+    /// </summary>
+    private static Vector2[] SeatPositions()
+    {
+        var positions = new List<Vector2>();
+
+        foreach (float y in SeatRows)
+            for (int c = SeatColumns.Length - 1; c >= 0; c--)
+                positions.Add(new Vector2(SeatColumns[c], y));
+
+        return positions.ToArray();
     }
 
     // ── Cableado ──────────────────────────────────────────────────────
 
     private static void WireWorkStation(
         WorkStation station, ReceptionDesk dropOff, PickupDesk pickup,
-        List<WorkDeskUnlockable> desks, List<CartWorker> carts, Transform root)
+        List<WorkDeskUnlockable> desks, List<CartWorker> carts, Transform root,
+        List<DecorationReveal> decorations)
     {
         // La cámara se centra en la sala naranja, que es la que se toca.
         Transform focus = NewChild(root, "CameraFocusPoint", CleaningRoomCenter).transform;
@@ -688,38 +791,140 @@ public static class Taller1Builder
         so.FindProperty("upgradeElements").arraySize = 0;
         so.ApplyModifiedPropertiesWithoutUndo();
 
-        BuildWorkshopZone(station.gameObject, focus, desks);
+        BuildWorkshopZone(station.gameObject, focus, desks, decorations);
     }
 
     /// <summary>
     /// Zona de la sala naranja: se toca y salen las mesas, para desbloquearlas
-    /// o mejorarlas. El collider ya está en la raíz del taller.
+    /// o mejorarlas, y las decoraciones del taller. El collider ya está en la
+    /// raíz del taller.
     /// </summary>
     private static void BuildWorkshopZone(
-        GameObject root, Transform focus, List<WorkDeskUnlockable> desks)
+        GameObject root, Transform focus, List<WorkDeskUnlockable> desks,
+        List<DecorationReveal> decorations)
     {
-        UpgradeZone zone = root.AddComponent<UpgradeZone>();
+        var elements = new List<ZoneElement>();
+        Sprite deskIcon = DeskIcon();
 
-        SerializedObject so = new(zone);
-        so.FindProperty("zoneName").stringValue = "Taller de limpieza";
-        so.FindProperty("cameraFocusPoint").objectReferenceValue = focus;
-
-        SerializedProperty elements = so.FindProperty("upgradeElements");
-        elements.arraySize = desks.Count;
-
-        Sprite icon = DeskIcon();
-
-        for (int i = 0; i < desks.Count; i++)
+        foreach (WorkDeskUnlockable desk in desks)
         {
-            SerializedProperty element = elements.GetArrayElementAtIndex(i);
-            element.FindPropertyRelative("unlockableTarget").objectReferenceValue = desks[i];
-            element.FindPropertyRelative("upgradeableTarget").objectReferenceValue =
-                desks[i].GetComponent<WorkDeskUpgradeable>();
-            element.FindPropertyRelative("icon").objectReferenceValue = icon;
+            if (desk == null) continue;
+
+            elements.Add(new ZoneElement
+            {
+                Unlockable = desk,
+                Upgradeable = desk.GetComponent<WorkDeskUpgradeable>(),
+                Icon = deskIcon,
+            });
         }
 
-        so.ApplyModifiedPropertiesWithoutUndo();
+        elements.AddRange(DecorationElements(decorations));
+
+        WireZone(root, focus, "Taller de limpieza", elements);
     }
+
+    /// <summary>
+    /// Las decoraciones como entradas del panel. Empiezan bloqueadas, así que
+    /// el panel las enseña primero como compra y luego como mejora.
+    /// </summary>
+    private static List<ZoneElement> DecorationElements(List<DecorationReveal> decorations)
+    {
+        var elements = new List<ZoneElement>();
+        if (decorations == null) return elements;
+
+        Sprite icon = DecorationIcon();
+
+        foreach (DecorationReveal decoration in decorations)
+        {
+            if (decoration == null) continue;
+
+            elements.Add(new ZoneElement
+            {
+                Unlockable = decoration.GetComponent<Unlockable>(),
+                Upgradeable = decoration.GetComponent<CoinBonusUpgradeable>(),
+                Icon = icon,
+            });
+        }
+
+        return elements;
+    }
+
+    /// <summary>
+    /// Las dos decoraciones de la sala naranja: estanterías arriba y plantas
+    /// en la columna de la derecha. Ninguna se cruza con los atraques de los
+    /// carritos ni con las mesas.
+    /// </summary>
+    private static List<DecorationReveal> BuildWorkshopDecorations(GameObject root)
+    {
+        return new List<DecorationReveal>
+        {
+            BuildDecoration(root, new DecorationSpec
+            {
+                ObjectName = "Estanteria",
+                DisplayName = "Estanterías",
+                Description = "Material bien colocado. Cada parte del proceso paga una moneda más por nivel.",
+                AssetPath = "Assets/ScriptableObjects/Upgrades/ShelvesUpgrade.asset",
+                UnlockCost = 750,
+                Pieces = ShelfPieces,
+                PieceSize = new Vector2(0.40f, 0.52f),
+                PieceColor = new Color(0.52f, 0.36f, 0.22f),
+                Thresholds = DecorationThresholds,
+            }),
+
+            BuildDecoration(root, new DecorationSpec
+            {
+                ObjectName = "PlantaTaller",
+                DisplayName = "Plantas del taller",
+                Description = "Un taller más agradable. Cada parte del proceso paga una moneda más por nivel.",
+                AssetPath = "Assets/ScriptableObjects/Upgrades/WorkshopPlantsUpgrade.asset",
+                UnlockCost = 1200,
+                Pieces = WorkshopPlantPieces,
+                PieceSize = new Vector2(0.34f, 0.40f),
+                PieceColor = new Color(0.30f, 0.60f, 0.32f),
+                Thresholds = DecorationThresholds,
+            }),
+        };
+    }
+
+    /// <summary>
+    /// Las dos decoraciones del hall que no son los asientos: plantas a la
+    /// derecha del carril de entrega y lámparas en el hueco entre los asientos
+    /// y el carril de recogida. Nada se pone en el camino de los clientes.
+    /// </summary>
+    private static List<DecorationReveal> BuildHallDecorations(GameObject root)
+    {
+        return new List<DecorationReveal>
+        {
+            BuildDecoration(root, new DecorationSpec
+            {
+                ObjectName = "PlantaHall",
+                DisplayName = "Plantas del hall",
+                Description = "Verde a la entrada. Cada parte del proceso paga una moneda más por nivel.",
+                AssetPath = "Assets/ScriptableObjects/Upgrades/HallPlantsUpgrade.asset",
+                UnlockCost = 900,
+                Pieces = HallPlantPieces,
+                PieceSize = new Vector2(0.34f, 0.40f),
+                PieceColor = new Color(0.34f, 0.66f, 0.38f),
+                Thresholds = DecorationThresholds,
+            }),
+
+            BuildDecoration(root, new DecorationSpec
+            {
+                ObjectName = "Lampara",
+                DisplayName = "Lámparas",
+                Description = "El hall mejor iluminado. Cada parte del proceso paga una moneda más por nivel.",
+                AssetPath = "Assets/ScriptableObjects/Upgrades/LampsUpgrade.asset",
+                UnlockCost = 1500,
+                Pieces = LampPieces,
+                PieceSize = new Vector2(0.26f, 0.55f),
+                PieceColor = new Color(0.90f, 0.80f, 0.42f),
+                Thresholds = DecorationThresholds,
+            }),
+        };
+    }
+
+    /// <summary>Icono provisional de los botones de decoración.</summary>
+    private static Sprite DecorationIcon() => SeatsIcon();
 
     /// <summary>Icono provisional de los botones de mesa, del set de graybox.</summary>
     private static Sprite DeskIcon() =>
@@ -730,6 +935,9 @@ public static class Taller1Builder
 
     private static Sprite ReceptionIcon() =>
         AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/GrayBox/Graybox2D/16x32.png");
+
+    private static Sprite SeatsIcon() =>
+        AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/GrayBox/Graybox2D/32x64.png");
 
     // ── Zonas mejorables ──────────────────────────────────────────────
 
@@ -747,7 +955,7 @@ public static class Taller1Builder
 
         Transform focus = NewChild(go.transform, "CameraFocusPoint", CartZoneFocus).transform;
 
-        var elements = new List<(Object target, Sprite icon)>();
+        var elements = new List<ZoneElement>();
 
         foreach (CartWorker cart in carts)
         {
@@ -756,11 +964,11 @@ public static class Taller1Builder
             CartUpgradeable upgradeable = cart.gameObject.AddComponent<CartUpgradeable>();
 
             SerializedObject cartSo = new(upgradeable);
-            cartSo.FindProperty("upgradeData").objectReferenceValue = CartUpgradeData();
+            cartSo.FindProperty("upgradeData").objectReferenceValue = CartData();
             cartSo.FindProperty("cartWorker").objectReferenceValue = cart;
             cartSo.ApplyModifiedPropertiesWithoutUndo();
 
-            elements.Add((upgradeable, CartIcon()));
+            elements.Add(new ZoneElement { Upgradeable = upgradeable, Icon = CartIcon() });
         }
 
         WireZone(go, focus, "Carritos", elements);
@@ -770,7 +978,9 @@ public static class Taller1Builder
     /// Zona de las recepciones: todo el hall azul. Se toca en cualquier punto y
     /// la cámara se centra en él.
     /// </summary>
-    private static void BuildReceptionZone(GameObject root, params ServiceSpeed[] desks)
+    private static void BuildReceptionZone(
+        GameObject root, ServiceSpeed dropOffSpeed, ServiceSpeed pickupSpeed, WaitingArea seats,
+        List<DecorationReveal> decorations)
     {
         GameObject go = NewChild(root.transform, "ZonaRecepciones", Vector2.zero);
 
@@ -780,27 +990,137 @@ public static class Taller1Builder
 
         Transform focus = NewChild(go.transform, "CameraFocusPoint", HallCenter).transform;
 
-        var elements = new List<(Object target, Sprite icon)>();
+        var elements = new List<ZoneElement>();
 
-        foreach (ServiceSpeed desk in desks)
+        foreach (ServiceSpeed desk in new[] { dropOffSpeed, pickupSpeed })
         {
             if (desk == null) continue;
 
             ReceptionUpgradeable upgradeable = desk.gameObject.AddComponent<ReceptionUpgradeable>();
 
             SerializedObject deskSo = new(upgradeable);
-            deskSo.FindProperty("upgradeData").objectReferenceValue = ReceptionUpgradeData();
+            deskSo.FindProperty("upgradeData").objectReferenceValue = ReceptionData();
             deskSo.FindProperty("serviceSpeed").objectReferenceValue = desk;
             deskSo.ApplyModifiedPropertiesWithoutUndo();
 
-            elements.Add((upgradeable, ReceptionIcon()));
+            elements.Add(new ZoneElement { Upgradeable = upgradeable, Icon = ReceptionIcon() });
         }
 
-        WireZone(go, focus, "Recepciones", elements);
+        // Los asientos: empiezan bloqueados, así que el panel los muestra
+        // primero como compra y luego como mejora.
+        if (seats != null)
+        {
+            elements.Add(new ZoneElement
+            {
+                Unlockable = seats.GetComponent<Unlockable>(),
+                Upgradeable = seats.GetComponent<CoinBonusUpgradeable>(),
+                Icon = SeatsIcon(),
+            });
+        }
+
+        elements.AddRange(DecorationElements(decorations));
+
+        WireZone(go, focus, "Recepción", elements);
+    }
+
+    // ── Decoraciones ──────────────────────────────────────────────────
+
+    /// <summary>Todo lo que define una decoración del taller.</summary>
+    private class DecorationSpec
+    {
+        public string ObjectName;      // nombre del grupo en la jerarquía
+        public string DisplayName;     // nombre en el panel de mejoras
+        public string Description;
+        public string AssetPath;
+        public double UnlockCost;
+        public Vector2[] Pieces;
+        public Vector2 PieceSize;
+        public Color PieceColor;
+
+        /// <summary>Nivel al que sale cada pieza. Uno por pieza.</summary>
+        public int[] Thresholds;
+    }
+
+    /// <summary>
+    /// Monta una decoración: sus piezas, el desbloqueo, la mejora que suma
+    /// monedas y el revelado por trozos.
+    ///
+    /// Está hecho genérico porque hay cinco y crecerán: si cada una trajera su
+    /// propio código copiado, arreglar algo en una dejaría las otras cuatro con
+    /// el fallo. Los asientos son una de estas, solo que además reparten sitios.
+    /// </summary>
+    private static DecorationReveal BuildDecoration(GameObject root, DecorationSpec spec)
+    {
+        GameObject group = NewChild(root.transform, spec.ObjectName, Vector2.zero);
+
+        var pieces = new List<GameObject>();
+        var poofs = new List<Poof>();
+
+        for (int i = 0; i < spec.Pieces.Length; i++)
+        {
+            GameObject piece = NewChild(group.transform, $"{spec.ObjectName}{i + 1:00}", spec.Pieces[i]);
+            SpriteRenderer body = AddSquare(piece, spec.PieceSize, spec.PieceColor, OrderFurniture);
+
+            pieces.Add(piece);
+            poofs.Add(AddPoof(piece, body));
+        }
+
+        // Hasta comprarla no se ve nada. El revelado lo lleva entero
+        // DecorationReveal, así que aquí no se revela nada: si lo hicieran los
+        // dos, se pisarían.
+        Unlockable unlockable = group.AddComponent<Unlockable>();
+        SerializedObject unlockSo = new(unlockable);
+        unlockSo.FindProperty("unlockCost").doubleValue = spec.UnlockCost;
+        unlockSo.FindProperty("unlockedByDefault").boolValue = false;
+        unlockSo.FindProperty("revealOnUnlock").arraySize = 0;
+        unlockSo.ApplyModifiedPropertiesWithoutUndo();
+
+        CoinBonusUpgradeable bonus = group.AddComponent<CoinBonusUpgradeable>();
+        SerializedObject bonusSo = new(bonus);
+        bonusSo.FindProperty("upgradeData").objectReferenceValue = DecorationData(spec, pieces.Count);
+        bonusSo.FindProperty("unlockable").objectReferenceValue = unlockable;
+        bonusSo.ApplyModifiedPropertiesWithoutUndo();
+
+        DecorationReveal reveal = group.AddComponent<DecorationReveal>();
+        SerializedObject revealSo = new(reveal);
+        SetObjectList(revealSo.FindProperty("pieces"), pieces);
+        SetObjectList(revealSo.FindProperty("piecePoofs"), poofs);
+        revealSo.FindProperty("unlockable").objectReferenceValue = unlockable;
+        revealSo.FindProperty("upgrade").objectReferenceValue = bonus;
+        revealSo.ApplyModifiedPropertiesWithoutUndo();
+
+        return reveal;
+    }
+
+    /// <summary>
+    /// El puf con el que algo aparece y desaparece. Las motitas salen del
+    /// mismo sprite y color que lo que se esconde, así que no hace falta
+    /// ningún asset de partículas.
+    /// </summary>
+    private static Poof AddPoof(GameObject go, SpriteRenderer body)
+    {
+        Poof poof = go.AddComponent<Poof>();
+
+        SerializedObject so = new(poof);
+        so.FindProperty("particleSprite").objectReferenceValue = body != null ? body.sprite : UnitSquare();
+        so.FindProperty("particleColor").colorValue = body != null
+            ? Color.Lerp(body.color, Color.white, 0.45f)
+            : Color.white;
+        so.ApplyModifiedPropertiesWithoutUndo();
+
+        return poof;
+    }
+
+    /// <summary>Una entrada del panel de mejoras de una zona.</summary>
+    private class ZoneElement
+    {
+        public Object Unlockable;
+        public Object Upgradeable;
+        public Sprite Icon;
     }
 
     private static void WireZone(
-        GameObject go, Transform focus, string zoneName, List<(Object target, Sprite icon)> elements)
+        GameObject go, Transform focus, string zoneName, List<ZoneElement> elements)
     {
         UpgradeZone zone = go.AddComponent<UpgradeZone>();
 
@@ -814,9 +1134,9 @@ public static class Taller1Builder
         for (int i = 0; i < elements.Count; i++)
         {
             SerializedProperty element = list.GetArrayElementAtIndex(i);
-            element.FindPropertyRelative("unlockableTarget").objectReferenceValue = null;
-            element.FindPropertyRelative("upgradeableTarget").objectReferenceValue = elements[i].target;
-            element.FindPropertyRelative("icon").objectReferenceValue = elements[i].icon;
+            element.FindPropertyRelative("unlockableTarget").objectReferenceValue = elements[i].Unlockable;
+            element.FindPropertyRelative("upgradeableTarget").objectReferenceValue = elements[i].Upgradeable;
+            element.FindPropertyRelative("icon").objectReferenceValue = elements[i].Icon;
         }
 
         so.ApplyModifiedPropertiesWithoutUndo();
@@ -826,23 +1146,152 @@ public static class Taller1Builder
     // Se crean solo si no existen, para no pisar los valores que ajuste el
     // jugador al reconstruir el layout.
 
-    private static UpgradeData CartUpgradeData() => LoadOrCreateUpgradeData(
+    /// <summary>
+    /// Cada asset de mejora que crea el builder, con el tipo que le toca.
+    /// </summary>
+    private static readonly (string Path, System.Type Type)[] ExpectedUpgradeAssets =
+    {
+        ("Assets/ScriptableObjects/Upgrades/CartUpgrade.asset",      typeof(CartUpgradeData)),
+        ("Assets/ScriptableObjects/Upgrades/ReceptionUpgrade.asset", typeof(ReceptionUpgradeData)),
+        ("Assets/ScriptableObjects/Upgrades/SeatsUpgrade.asset",     typeof(DecorationUpgradeData)),
+    };
+
+    /// <summary>
+    /// Comprueba, antes de construir, que los assets de mejora se pueden
+    /// cargar y son del tipo correcto.
+    ///
+    /// Si no lo son, LoadOrCreate devolvería null, los mejorables se quedarían
+    /// sin datos y el panel fallaría al abrir esa sala — un fallo que aparece
+    /// mucho más tarde y bastante lejos de su causa. Aquí se ve enseguida.
+    /// </summary>
+    private static bool UpgradeAssetsAreValid()
+    {
+        List<string> problems = new();
+
+        foreach (var (path, type) in ExpectedUpgradeAssets)
+        {
+            bool fileExists = System.IO.File.Exists(path);
+            UpgradeData asset = AssetDatabase.LoadAssetAtPath<UpgradeData>(path);
+
+            // Que no exista todavía es normal: LoadOrCreate lo creará.
+            if (!fileExists && asset == null) continue;
+
+            string file = System.IO.Path.GetFileName(path);
+
+            if (asset == null)
+            {
+                problems.Add($"- {file}: existe pero no carga (¿script roto o sin reimportar?)");
+            }
+            else if (!type.IsInstanceOfType(asset))
+            {
+                problems.Add($"- {file}: es {asset.GetType().Name}, hace falta {type.Name}");
+            }
+        }
+
+        if (problems.Count == 0) return true;
+
+        string message =
+            "No construyo nada: hay assets de mejora que no se pueden usar, y si " +
+            "siguiera adelante las mejoras se quedarían sin datos y el panel " +
+            "fallaría al abrirse.\n\n" + string.Join("\n", problems) +
+            "\n\nSi acabas de cambiar los scripts, haz clic derecho sobre la carpeta " +
+            "ScriptableObjects/Upgrades y pulsa Reimport, y vuelve a intentarlo.";
+
+        Debug.LogError($"[Taller1Builder] {message}");
+        EditorUtility.DisplayDialog("Taller 1", message, "Vale");
+        return false;
+    }
+
+    /// <summary>
+    /// Repaso final: ningún mejorable puede quedarse sin UpgradeData. Si pasa,
+    /// se dice aquí señalando al objeto, en vez de dejar que salte al abrir el
+    /// panel en pleno juego.
+    /// </summary>
+    private static void VerifyUpgradeablesWired(GameObject root)
+    {
+        int missing = 0;
+
+        foreach (UpgradeableBase upgradeable in root.GetComponentsInChildren<UpgradeableBase>(true))
+        {
+            if (upgradeable.UpgradeData != null) continue;
+
+            Debug.LogError(
+                $"[Taller1Builder] {upgradeable.GetType().Name} en '{upgradeable.name}' " +
+                $"se ha quedado sin UpgradeData.", upgradeable);
+            missing++;
+        }
+
+        if (missing == 0) return;
+
+        EditorUtility.DisplayDialog("Taller 1",
+            $"{missing} mejora(s) se han quedado sin datos; mira la consola. " +
+            "El panel no podrá abrirlas hasta arreglarlo.", "Vale");
+    }
+
+    private static CartUpgradeData CartData() => LoadOrCreate<CartUpgradeData>(
         "Assets/ScriptableObjects/Upgrades/CartUpgrade.asset",
         "Carrito", "Transporta los objetos más rápido entre recepción y taller.",
         baseCost: 250);
 
-    private static UpgradeData ReceptionUpgradeData() => LoadOrCreateUpgradeData(
+    private static ReceptionUpgradeData ReceptionData() => LoadOrCreate<ReceptionUpgradeData>(
         "Assets/ScriptableObjects/Upgrades/ReceptionUpgrade.asset",
         "Recepción", "Atiende a los clientes más rápido.",
         baseCost: 200);
 
-    private static UpgradeData LoadOrCreateUpgradeData(
-        string path, string elementName, string description, double baseCost)
+    /// <summary>
+    /// Datos de la mejora de una decoración. Los umbrales y el nivel máximo se
+    /// reescriben en cada construcción a propósito: tiene que haber
+    /// exactamente un tramo por pieza, y si se descuadran dejarían piezas
+    /// inalcanzables o la barra apuntando a niveles que no existen. El coste,
+    /// los textos y las monedas por nivel sí se respetan si ya los has tocado.
+    /// </summary>
+    private static DecorationUpgradeData DecorationData(DecorationSpec spec, int pieceCount)
     {
-        UpgradeData existing = AssetDatabase.LoadAssetAtPath<UpgradeData>(path);
+        DecorationUpgradeData data = LoadOrCreate<DecorationUpgradeData>(
+            spec.AssetPath, spec.DisplayName, spec.Description, baseCost: 300);
+
+        if (data == null) return null;
+
+        int[] thresholds = spec.Thresholds;
+        int stages = Mathf.Min(pieceCount, thresholds.Length);
+
+        data.evolutionStages.Clear();
+        for (int i = 0; i < stages; i++)
+            data.evolutionStages.Add(new EvolutionStage { levelThreshold = thresholds[i] });
+
+        data.maxLevel = thresholds[stages - 1];
+
+        EditorUtility.SetDirty(data);
+        AssetDatabase.SaveAssets();
+
+        return data;
+    }
+
+    /// <summary>
+    /// Carga el asset de mejora, o lo crea con los valores de partida si no
+    /// existe. Nunca pisa uno que ya esté: los números afinados a mano son del
+    /// jugador, no del builder.
+    /// </summary>
+    private static T LoadOrCreate<T>(
+        string path, string elementName, string description, double baseCost)
+        where T : UpgradeData
+    {
+        T existing = AssetDatabase.LoadAssetAtPath<T>(path);
         if (existing != null) return existing;
 
-        UpgradeData data = ScriptableObject.CreateInstance<UpgradeData>();
+        // Si hay algo en esa ruta pero no es del tipo que toca, avisar en vez
+        // de crear encima y perderlo.
+        UpgradeData wrongType = AssetDatabase.LoadAssetAtPath<UpgradeData>(path);
+        if (wrongType != null)
+        {
+            Debug.LogError(
+                $"[Taller1Builder] {path} es {wrongType.GetType().Name} pero aquí " +
+                $"hace falta {typeof(T).Name}. Bórralo o conviértelo a mano; " +
+                $"no lo sobrescribo para no perder sus valores.", wrongType);
+            return null;
+        }
+
+        T data = ScriptableObject.CreateInstance<T>();
         data.elementName = elementName;
         data.description = description;
         data.baseCost = baseCost;
@@ -896,7 +1345,7 @@ public static class Taller1Builder
     // ── Helpers ───────────────────────────────────────────────────────
 
     private static ItemStack BuildStack(
-        Transform parent, string name, Vector2 pos, Vector2 dockPos, int capacity)
+        Transform parent, string name, Vector2 pos, Vector2 dockPos)
     {
         GameObject go = NewChild(parent, name, pos);
 
@@ -908,10 +1357,15 @@ public static class Taller1Builder
 
         Transform access = NewChild(go.transform, "AccessPoint", dockPos).transform;
 
+        // El puf con el que la bolsa aparece y desaparece. Solo lo usan las de
+        // terminados, que se esconden al desbloquear una mesa nueva, pero se
+        // pone en todas: no estorba y deja la bolsa lista si algún día otra
+        // también tiene que esconderse.
+        AddPoof(go, sack.GetComponentInChildren<SpriteRenderer>());
+
         ItemStack stack = go.AddComponent<ItemStack>();
         SerializedObject so = new(stack);
         so.FindProperty("accessPoint").objectReferenceValue = access;
-        so.FindProperty("capacity").intValue = capacity;
         so.FindProperty("sack").objectReferenceValue = sack;
         so.ApplyModifiedPropertiesWithoutUndo();
 
@@ -927,7 +1381,7 @@ public static class Taller1Builder
         GameObject go = NewChild(parent, "Saco", pos);
 
         GameObject bodyGO = NewChild(go.transform, "Cuerpo", pos);
-        SpriteRenderer body = AddSquare(bodyGO, SackEmptySize, SackEmptyColor, SortingOrders.Item);
+        SpriteRenderer body = AddSquare(bodyGO, SackSize, SackColor, SortingOrders.Sack);
 
         // La boca, un poco por encima del centro: ahí aterrizan los saltitos.
         Transform mouth = NewChild(go.transform, "Boca", pos + new Vector2(0f, 0.12f)).transform;
@@ -936,10 +1390,7 @@ public static class Taller1Builder
         SerializedObject so = new(sack);
         so.FindProperty("body").objectReferenceValue = body;
         so.FindProperty("mouth").objectReferenceValue = mouth;
-        so.FindProperty("emptyScale").vector2Value = SackEmptySize;
-        so.FindProperty("fullScale").vector2Value = SackFullSize;
-        so.FindProperty("emptyColor").colorValue = SackEmptyColor;
-        so.FindProperty("fullColor").colorValue = SackFullColor;
+        so.FindProperty("size").vector2Value = SackSize;
         so.ApplyModifiedPropertiesWithoutUndo();
 
         return sack;

@@ -29,6 +29,10 @@ public class WorkTable : MonoBehaviour, IItemContainer
              "es la última mesa desbloqueada, a la espera de que pase el carrito")]
     [SerializeField] private ItemStack outStack;
 
+    [Tooltip("Efecto con el que esa bolsa aparece y desaparece. Si es null, se " +
+             "enciende y se apaga de golpe")]
+    [SerializeField] private Poof outStackPoof;
+
     [Header("Worker propio de esta mesa")]
     [SerializeField] private Worker worker;
 
@@ -45,6 +49,7 @@ public class WorkTable : MonoBehaviour, IItemContainer
     private float _zoneRewardMultiplier = 1f;
 
     private float _currentStarChance;
+    private WorkStation _station;
 
     /// <summary>Ha llegado trabajo a la zona de espera.</summary>
     public event Action OnItemEnqueued;
@@ -60,6 +65,62 @@ public class WorkTable : MonoBehaviour, IItemContainer
     {
         if (worker != null)
             worker.Init(this, GetComponentInParent<WorkStation>());
+
+        if (outStack != null)
+            outStack.OnChanged += HandleOutStackChanged;
+    }
+
+    private void OnDestroy()
+    {
+        if (outStack != null)
+            outStack.OnChanged -= HandleOutStackChanged;
+    }
+
+    // ── Bolsa de terminados ───────────────────────────────────────────
+
+    private bool _isLastUnlocked = true;
+    private bool _outStackSettled;
+
+    /// <summary>
+    /// Dice a la mesa si sigue siendo la última desbloqueada. Solo la última
+    /// deja ahí los objetos terminados: en las demás, el objeto pasa directo a
+    /// la mesa siguiente y esa bolsa ya no pinta nada, así que se esconde.
+    ///
+    /// Lo llama la WorkStation al arrancar y cada vez que se desbloquea una
+    /// mesa nueva.
+    /// </summary>
+    public void SetIsLastUnlocked(bool isLast)
+    {
+        _isLastUnlocked = isLast;
+        RefreshOutStackVisibility();
+    }
+
+    private void HandleOutStackChanged() => RefreshOutStackVisibility();
+
+    /// <summary>
+    /// Se esconde solo si ya no se usa Y está vacía. Al desbloquear una mesa
+    /// nueva puede quedar algún objeto terminado esperando en la anterior, y
+    /// esconderlo dejaría al carrito recogiendo de una bolsa invisible.
+    ///
+    /// El primer repaso es el de montar la escena y va sin animación: si no,
+    /// todas las bolsas que empiezan escondidas soltarían un puf al arrancar.
+    /// </summary>
+    private void RefreshOutStackVisibility()
+    {
+        if (outStack == null) return;
+
+        bool shouldShow = _isLastUnlocked || outStack.Count > 0;
+
+        if (outStackPoof != null)
+        {
+            outStackPoof.SetVisible(shouldShow, animate: _outStackSettled);
+        }
+        else if (outStack.gameObject.activeSelf != shouldShow)
+        {
+            outStack.gameObject.SetActive(shouldShow);
+        }
+
+        _outStackSettled = true;
     }
 
     public Vector3 PlayerSlotPos => playerSlot.position;
@@ -77,7 +138,6 @@ public class WorkTable : MonoBehaviour, IItemContainer
     public int Count => inStack != null ? inStack.Count : 0;
     public int Capacity => inStack != null ? inStack.Capacity : 0;
     public bool HasSpace => inStack == null || inStack.HasSpace;
-    public bool IsFull => inStack != null && inStack.IsFull;
     public Vector3 AccessPointPos => inStack != null ? inStack.AccessPointPos : BoxPointPos;
     public Vector3 ContentsPos => inStack != null ? inStack.ContentsPos : BoxPointPos;
 
@@ -105,8 +165,40 @@ public class WorkTable : MonoBehaviour, IItemContainer
     public float GetProcessTime(ItemDefinition item)
         => Mathf.Max(0.1f, item.baseRepairTime * _levelTimeMultiplier * _zoneTimeMultiplier);
 
+    /// <summary>
+    /// Lo que paga esta mesa por un objeto.
+    ///
+    /// El precio del objeto se reparte entre las mesas desbloqueadas: con una
+    /// sola mesa, esa cobra los 100; con dos, 50 cada una. Sobre la parte que
+    /// le toca se aplican los multiplicadores propios de esta mesa —su nivel y
+    /// el de la zona— y solo al final se suma el bonus plano de las
+    /// decoraciones, que son monedas extra por cobro y no deben escalar con
+    /// nada.
+    ///
+    /// Así, subir de nivel una mesa mejora lo que cobra ella, no el total.
+    /// </summary>
     public int GetReward(ItemDefinition item)
-        => Mathf.RoundToInt(item.rewardCoins * _levelRewardMultiplier * _zoneRewardMultiplier);
+        => Mathf.RoundToInt(ShareOf(item.rewardCoins) * _levelRewardMultiplier * _zoneRewardMultiplier)
+           + CoinBonusRegistry.FlatPerProcess;
+
+    /// <summary>
+    /// La parte del precio que le toca a esta mesa.
+    ///
+    /// El reparto se hace con enteros de forma que las partes sumen justo el
+    /// precio, sin perder ni inventar monedas por redondeo: 100 entre 3 da
+    /// 34 + 33 + 33, no 33 + 33 + 33.
+    /// </summary>
+    private int ShareOf(int totalReward)
+    {
+        WorkStation station = Station;
+
+        if (station == null || !station.TryGetDeskPosition(this, out int index, out int tables) || tables <= 1)
+            return totalReward;
+
+        return totalReward * (index + 1) / tables - totalReward * index / tables;
+    }
+
+    private WorkStation Station => _station != null ? _station : _station = GetComponentInParent<WorkStation>();
 
     // Llamado desde WorkDeskUpgradeable al mejorar (nivel propio de la mesa)
     public void ApplyMultipliers(float timeMultiplier, float rewardMultiplier)
@@ -122,7 +214,7 @@ public class WorkTable : MonoBehaviour, IItemContainer
         _zoneRewardMultiplier = zoneRewardMultiplier;
     }
 
-    public void ApplyUpgradeData(UpgradeData data, int level)
+    public void ApplyUpgradeData(WorkDeskUpgradeData data, int level)
     {
         _currentStarChance = data.GetStarChanceForLevel(level);
     }

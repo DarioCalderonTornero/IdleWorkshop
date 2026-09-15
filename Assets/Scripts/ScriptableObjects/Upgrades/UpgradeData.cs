@@ -1,9 +1,20 @@
 using UnityEngine;
 using System.Collections.Generic;
 
-[CreateAssetMenu(fileName = "UpgradeData", menuName = "Idle/Upgrade Data")]
-public class UpgradeData : ScriptableObject
+/// <summary>
+/// Lo que toda mejora tiene en común: cómo se llama, cuánto cuesta subirla y en
+/// qué niveles cambia de aspecto. Es lo único que consume el panel de mejoras,
+/// así que la UI funciona igual con cualquier tipo de mejora.
+///
+/// Es abstracta a propósito. Lo que cada mejora *hace* —la velocidad de un
+/// carrito, el tiempo de una recepción, las monedas de una decoración— vive en
+/// su subclase. Así en el inspector de cada asset solo aparecen los campos que
+/// ese elemento usa de verdad, y no se puede crear una mejora "de nada" que no
+/// sepa a qué afecta.
+/// </summary>
+public abstract class UpgradeData : ScriptableObject
 {
+    [Header("Identidad")]
     public string elementName;
     public string description;
     public Sprite elementImage;
@@ -13,25 +24,8 @@ public class UpgradeData : ScriptableObject
     public float growthFactor = 1.5f;
     public int maxLevel = 20;
 
-    [Header("Mejora de tiempo (mesas de trabajo)")]
-    public float timeReductionPerLevel = 0.05f;
-
-    [Header("Mejora de recompensa (mesas de trabajo)")]
-    public float rewardIncreasePerLevel = 0.1f;
-
-    [Header("Estrellas")]
-    [Tooltip("Probabilidad base de dar estrella (0-100)")]
-    [Range(0f, 100f)]
-    public float baseStarChance = 10f;
-    [Tooltip("Incremento de probabilidad por nivel")]
-    [Range(0f, 10f)]
-    public float starChanceIncreasePerLevel = 1f;
-    [Tooltip("Probabilidad m�xima de dar estrella (0-100)")]
-    [Range(0f, 100f)]
-    public float maxStarChance = 50f;
-
-    [Header("Evoluci�n visual")]
-    [Tooltip("Niveles en los que el elemento cambia de aspecto. Deben ir ordenados de menor a mayor.")]
+    [Header("Tramos de evolución")]
+    [Tooltip("Niveles en los que el elemento cambia. Deben ir ordenados de menor a mayor.")]
     public List<EvolutionStage> evolutionStages = new();
 
     public double GetCostForLevel(int level)
@@ -39,15 +33,13 @@ public class UpgradeData : ScriptableObject
         return System.Math.Round(baseCost * System.Math.Pow(growthFactor, level - 1));
     }
 
-    public float GetStarChanceForLevel(int level)
-    {
-        return Mathf.Min(maxStarChance, baseStarChance + (level - 1) * starChanceIncreasePerLevel);
-    }
-
     /// <summary>
-    /// Devuelve el rango (suelo, techo) del tramo de evoluci�n actual para un nivel dado.
-    /// El suelo es el �ltimo umbral ya superado (0 si ninguno), el techo es el siguiente
-    /// umbral pendiente (o maxLevel si no quedan m�s evoluciones).
+    /// Devuelve el rango (suelo, techo) del tramo de evolución actual para un
+    /// nivel dado. El suelo es el último umbral ya superado (0 si ninguno), el
+    /// techo es el siguiente umbral pendiente (o maxLevel si no quedan más).
+    ///
+    /// Es lo que rellena la barra del panel: cuánto falta para el próximo
+    /// cambio, no para el nivel máximo.
     /// </summary>
     public (int floor, int ceiling) GetCurrentStageRange(int currentLevel)
     {
@@ -71,9 +63,30 @@ public class UpgradeData : ScriptableObject
     }
 
     /// <summary>
-    /// Devuelve el sprite correspondiente al nivel actual, seg�n el �ltimo
-    /// umbral de evoluci�n alcanzado. Null si a�n no se alcanz� ninguno
-    /// (en ese caso, usar el sprite base del propio elemento en la escena).
+    /// Cuántos tramos de evolución se han alcanzado ya con este nivel.
+    ///
+    /// Sirve para elementos cuya evolución no es cambiar de sprite sino ir
+    /// apareciendo por partes: los asientos del hall usan un tramo por asiento,
+    /// así que este número es directamente cuántos se ven.
+    /// </summary>
+    public int GetReachedStageCount(int currentLevel)
+    {
+        int count = 0;
+
+        foreach (var stage in evolutionStages)
+        {
+            if (stage.levelThreshold > currentLevel) break;
+            count++;
+        }
+
+        return count;
+    }
+
+    /// <summary>
+    /// Devuelve el sprite correspondiente al nivel actual, según el último
+    /// umbral de evolución alcanzado. Null si aún no se alcanzó ninguno, o si
+    /// esta mejora no cambia de sprite (en ese caso, se usa el sprite base del
+    /// propio elemento en la escena).
     /// </summary>
     public Sprite GetCurrentVisual(int currentLevel)
     {
@@ -92,7 +105,11 @@ public class UpgradeData : ScriptableObject
 [System.Serializable]
 public class EvolutionStage
 {
-    [Tooltip("Nivel en el que esta evoluci�n se activa (el elemento cambia de visual al alcanzarlo).")]
+    [Tooltip("Nivel en el que este tramo se activa.")]
     public int levelThreshold;
+
+    [Tooltip("Sprite al que cambia el elemento. Opcional: las mejoras que no " +
+             "cambian de sprite (por ejemplo las decorativas, que revelan piezas) " +
+             "lo dejan vacío y solo usan el umbral.")]
     public Sprite visual;
 }

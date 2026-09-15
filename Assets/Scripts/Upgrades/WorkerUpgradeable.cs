@@ -1,12 +1,15 @@
 using UnityEngine;
 
+/// <summary>
+/// Mejora de un trabajador: se mueve mÃ¡s rÃ¡pido por nivel.
+/// </summary>
 public class WorkerUpgradeable : UpgradeableBase
 {
-    [Header("Efecto por nivel")]
-    [Tooltip("Incremento de velocidad de movimiento por nivel (ej: 0.1 = +10% por nivel)")]
-    [SerializeField] private float moveSpeedMultiplierPerLevel = 0.1f;
-
     private WorkerBase _worker;
+
+    public override System.Type ExpectedDataType => typeof(WorkerUpgradeData);
+
+    private WorkerUpgradeData Data => RequireData<WorkerUpgradeData>();
 
     protected override void Awake()
     {
@@ -14,15 +17,19 @@ public class WorkerUpgradeable : UpgradeableBase
 
         _worker = GetComponentInChildren<WorkerBase>();
         if (_worker == null)
-            Debug.LogWarning("[WorkerUpgradeable] No se encontró WorkerBase.");
+            Debug.LogWarning($"[WorkerUpgradeable] {name}: no encuentro ningÃºn WorkerBase.", this);
+
+        _ = Data;
     }
 
     protected override void OnUpgraded(int newLevel)
     {
-        if (_worker == null) return;
+        WorkerUpgradeData data = Data;
+        if (_worker == null || data == null) return;
 
-        float multiplier = 1f + (newLevel * moveSpeedMultiplierPerLevel);
+        float multiplier = 1f + newLevel * data.moveSpeedMultiplierPerLevel;
         _worker.ApplyMoveSpeedMultiplier(multiplier);
-        Debug.Log($"[WorkerUpgradeable] Nivel {newLevel} — velocidad ×{multiplier:F2}");
+
+        Debug.Log($"[WorkerUpgradeable] Nivel {newLevel} - velocidad x{multiplier:F2}");
     }
 }

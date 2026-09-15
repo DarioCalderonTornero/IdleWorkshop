@@ -3,42 +3,53 @@ using UnityEngine;
 /// <summary>
 /// Los asientos donde los clientes esperan a que su objeto esté listo.
 ///
+/// No aparecen todos de golpe: al comprarlos sale el primero y los demás van
+/// saliendo según sube el nivel de la mejora. De eso se encarga el
+/// <see cref="DecorationReveal"/>, que es el mismo componente que usan el resto
+/// de decoraciones del taller; aquí solo se reparten los sitios.
+///
 /// Quien no encuentra sitio se va del mapa y vuelve cuando le toca, así que
 /// esto no limita cuántos encargos puede haber en marcha: solo cuántos clientes
 /// se ven esperando a la vez.
 /// </summary>
 public class WaitingArea : MonoBehaviour
 {
-    [Tooltip("Un transform por asiento. El orden no importa")]
+    [Tooltip("Un transform por asiento, en el orden en que van apareciendo")]
     [SerializeField] private Transform[] seats;
+
+    [Tooltip("Quién decide cuántos asientos se ven. Si es null, valen todos")]
+    [SerializeField] private DecorationReveal reveal;
 
     private bool[] _taken;
 
+    /// <summary>Cuántos asientos hay puestos en la escena.</summary>
     public int SeatCount => seats != null ? seats.Length : 0;
 
-    /// <summary>Asientos ocupados ahora mismo. Solo para depurar.</summary>
-    public int TakenCount
-    {
-        get
-        {
-            EnsureState();
+    /// <summary>
+    /// Cuántos están disponibles ahora mismo. Sale del mismo sitio que las
+    /// piezas que se ven, así que nunca se puede reservar un asiento invisible.
+    /// </summary>
+    public int AvailableSeats =>
+        reveal != null ? Mathf.Min(reveal.VisibleCount, SeatCount) : SeatCount;
 
-            int count = 0;
-            foreach (bool taken in _taken)
-                if (taken) count++;
-
-            return count;
-        }
-    }
+    /// <summary>Si ya se han comprado los asientos.</summary>
+    public bool IsUnlocked => reveal == null || reveal.IsUnlocked;
 
     private void Awake() => EnsureState();
 
-    /// <summary>Reserva el primer asiento libre. False si están todos ocupados.</summary>
+    // ── Reservar y soltar ────────────────────────────────────────────
+
+    /// <summary>
+    /// Reserva el primer asiento libre de los que hay disponibles. False si
+    /// están todos ocupados, o si todavía no hay ninguno.
+    /// </summary>
     public bool TryClaimSeat(out int index, out Vector3 position)
     {
         EnsureState();
 
-        for (int i = 0; i < _taken.Length; i++)
+        int available = AvailableSeats;
+
+        for (int i = 0; i < available && i < _taken.Length; i++)
         {
             if (_taken[i] || seats[i] == null) continue;
 
@@ -76,12 +87,19 @@ public class WaitingArea : MonoBehaviour
     {
         if (seats == null) return;
 
+        int available = AvailableSeats;
+
         for (int i = 0; i < seats.Length; i++)
         {
             if (seats[i] == null) continue;
 
+            bool isAvailable = i < available;
             bool taken = _taken != null && i < _taken.Length && _taken[i];
-            Gizmos.color = taken ? new Color(1f, 0.5f, 0.2f) : new Color(0.4f, 0.8f, 1f);
+
+            Gizmos.color = !isAvailable ? new Color(0.4f, 0.4f, 0.4f, 0.4f)
+                         : taken ? new Color(1f, 0.5f, 0.2f)
+                         : new Color(0.4f, 0.8f, 1f);
+
             Gizmos.DrawWireCube(seats[i].position, new Vector3(0.3f, 0.3f, 0f));
         }
     }

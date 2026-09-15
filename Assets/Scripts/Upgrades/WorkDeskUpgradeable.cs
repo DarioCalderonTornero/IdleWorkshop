@@ -1,32 +1,43 @@
 using UnityEngine;
 
+/// <summary>
+/// Mejora de una mesa de limpieza: mÃ¡s rÃ¡pida, paga mÃ¡s y saca mÃ¡s estrellas.
+/// </summary>
 public class WorkDeskUpgradeable : UpgradeableBase
 {
     private WorkTable _workTable;
 
+    public override System.Type ExpectedDataType => typeof(WorkDeskUpgradeData);
+
+    private WorkDeskUpgradeData Data => RequireData<WorkDeskUpgradeData>();
+
     protected override void Awake()
     {
         base.Awake();
+
         _workTable = GetComponent<WorkTable>();
         if (_workTable == null)
-            Debug.LogWarning("[WorkDeskUpgradeable] No se encontró WorkTable.");
+            Debug.LogWarning($"[WorkDeskUpgradeable] {name}: no encuentro ninguna WorkTable.", this);
+
+        _ = Data;   // valida el tipo del asset al arrancar, no al primer nivel
     }
 
     protected override void OnUpgraded(int newLevel)
     {
-        if (_workTable == null || UpgradeData == null) return;
+        WorkDeskUpgradeData data = Data;
+        if (_workTable == null || data == null) return;
 
         float timeMultiplier = Mathf.Max(0.1f,
-            1f - (newLevel - 1) * UpgradeData.timeReductionPerLevel);
+            1f - (newLevel - 1) * data.timeReductionPerLevel);
 
         float rewardMultiplier =
-            1f + (newLevel - 1) * UpgradeData.rewardIncreasePerLevel;
+            1f + (newLevel - 1) * data.rewardIncreasePerLevel;
 
         _workTable.ApplyMultipliers(timeMultiplier, rewardMultiplier);
-        _workTable.ApplyUpgradeData(UpgradeData, newLevel);
+        _workTable.ApplyUpgradeData(data, newLevel);
 
-        Debug.Log($"[WorkDeskUpgradeable] Nivel {newLevel} — " +
-                  $"tiempo ×{timeMultiplier:F2} — recompensa ×{rewardMultiplier:F2} — " +
-                  $"estrella {UpgradeData.GetStarChanceForLevel(newLevel):F1}%");
+        Debug.Log($"[WorkDeskUpgradeable] Nivel {newLevel} - " +
+                  $"tiempo x{timeMultiplier:F2}, recompensa x{rewardMultiplier:F2}, " +
+                  $"estrella {data.GetStarChanceForLevel(newLevel):F1}%");
     }
 }

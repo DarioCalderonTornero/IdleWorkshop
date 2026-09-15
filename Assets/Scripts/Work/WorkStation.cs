@@ -83,6 +83,26 @@ public class WorkStation : MonoBehaviour
             if (element.upgradeableTarget is DecorativeUpgradeable decorative)
                 decorative.Init(this);
         }
+
+        RefreshOutStacks();
+    }
+
+    /// <summary>
+    /// Solo la última mesa desbloqueada deja ahí los objetos terminados; en el
+    /// resto, el objeto pasa directo a la mesa siguiente. Esto le dice a cada
+    /// mesa si le toca enseñar su bolsa de terminados o esconderla.
+    /// </summary>
+    private void RefreshOutStacks()
+    {
+        WorkTable last = GetLastUnlockedDesk();
+
+        foreach (var desk in workDesks)
+        {
+            if (desk == null) continue;
+            if (!_deskTables.TryGetValue(desk, out WorkTable table) || table == null) continue;
+
+            table.SetIsLastUnlocked(table == last);
+        }
     }
 
     // ── Registro de mesas ────────────────────────────────────────────
@@ -95,6 +115,10 @@ public class WorkStation : MonoBehaviour
             _unlockedDesks.Add(table);
             Debug.Log($"[WorkStation] Mesa registrada. Total activas: {_unlockedDesks.Count}");
         }
+
+        // La salida del taller se muda a la mesa nueva: la anterior esconde su
+        // bolsa de terminados en cuanto se quede vacía.
+        RefreshOutStacks();
     }
 
     public List<WorkTable> GetUnlockedDesks() => _unlockedDesks;
@@ -143,6 +167,30 @@ public class WorkStation : MonoBehaviour
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// En qué puesto va esta mesa entre las desbloqueadas, y cuántas hay.
+    /// El puesto empieza en 0 y sigue el orden de workDesks.
+    ///
+    /// Lo usa la mesa para saber qué parte del valor del objeto le toca cobrar:
+    /// el precio se reparte entre las mesas por las que pasa.
+    /// </summary>
+    public bool TryGetDeskPosition(WorkTable table, out int index, out int total)
+    {
+        index = -1;
+        total = 0;
+
+        foreach (var desk in workDesks)
+        {
+            if (desk == null || !desk.IsUnlocked) continue;
+            if (!_deskTables.TryGetValue(desk, out WorkTable current) || current == null) continue;
+
+            if (current == table) index = total;
+            total++;
+        }
+
+        return index >= 0;
     }
 
     public bool AllDesksUnlocked()

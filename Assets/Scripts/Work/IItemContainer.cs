@@ -13,14 +13,15 @@ public interface IItemContainer
     /// <summary>Encargos que hay ahora mismo.</summary>
     int Count { get; }
 
-    /// <summary>Cuántos caben.</summary>
+    /// <summary>
+    /// Cuántos caben, o 0 si no tiene tope. Solo el carrito lo tiene: las
+    /// bolsas fijas acumulan lo que haga falta, así que un atasco aguas abajo
+    /// nunca frena la cola de clientes.
+    /// </summary>
     int Capacity { get; }
 
-    /// <summary>Si admite al menos uno más.</summary>
+    /// <summary>Si admite al menos uno más. Siempre true si no tiene tope.</summary>
     bool HasSpace { get; }
-
-    /// <summary>Si ya no cabe nada: es cuando el carrito viene a vaciarla.</summary>
-    bool IsFull { get; }
 
     /// <summary>Punto en mundo al que se acerca quien carga o descarga.</summary>
     Vector3 AccessPointPos { get; }

@@ -9,9 +9,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1fbf50a40f7ba22448ae113ef7d56b47, type: 3}
+  m_Script: {fileID: 11500000, guid: 65a6adba9c574e1abf9a83544d739d78, type: 3}
   m_Name: WorkDeskUpgrade5
-  m_EditorClassIdentifier: Assembly-CSharp::UpgradeData
+  m_EditorClassIdentifier: Assembly-CSharp::WorkDeskUpgradeData
   elementName: Mesa de trabajo
   description: Una mesa de madera simplona.
   elementImage: {fileID: 10901, guid: 0000000000000000f000000000000000, type: 0}

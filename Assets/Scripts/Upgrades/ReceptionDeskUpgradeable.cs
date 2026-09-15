@@ -1,21 +1,24 @@
 using UnityEngine;
 
 /// <summary>
-/// Mejoras de la mesa de recepción.
+/// Mejoras de la mesa de recepciï¿½n.
 /// Por ahora el nivel controla la velocidad con la que acepta clientes.
 /// </summary>
 public class ReceptionDeskUpgradeable : UpgradeableBase
 {
     [Header("Efecto por nivel")]
-    [Tooltip("Reducción de tiempo de espera por nivel (en segundos)")]
+    [Tooltip("Reducciï¿½n de tiempo de espera por nivel (en segundos)")]
     [SerializeField] private float waitReductionPerLevel = 0.5f;
+
+    // No lee nada especÃ­fico del SO: le vale cualquiera.
+    public override System.Type ExpectedDataType => typeof(UpgradeData);
 
     public float CurrentWaitReduction => CurrentLevel * waitReductionPerLevel;
 
     protected override void OnUpgraded(int newLevel)
     {
-        // Aquí aplicarás el efecto real cuando lo tengas implementado
+        // Aquï¿½ aplicarï¿½s el efecto real cuando lo tengas implementado
         // Ej: workTable.SetWaitReduction(CurrentWaitReduction);
-        Debug.Log($"[ReceptionDesk] Nivel {newLevel} — reducción espera: {CurrentWaitReduction}s");
+        Debug.Log($"[ReceptionDesk] Nivel {newLevel} ï¿½ reducciï¿½n espera: {CurrentWaitReduction}s");
     }
 }

@@ -35,7 +35,6 @@ public class WorkshopOutput : MonoBehaviour, IItemContainer
     public int Count => Current != null ? Current.Count : 0;
     public int Capacity => Current != null ? Current.Capacity : 0;
     public bool HasSpace => Current != null && Current.HasSpace;
-    public bool IsFull => Current != null && Current.IsFull;
 
     public Vector3 AccessPointPos
     {

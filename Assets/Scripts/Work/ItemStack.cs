@@ -8,8 +8,11 @@ using UnityEngine;
 /// mesa de entrega al cliente (paso 12).
 ///
 /// El saco siempre se ve. Los objetos entran y salen de él dando un saltito y
-/// el saco crece, se oscurece y da un golpecito en cada movimiento; no se
-/// apilan sueltos por fuera.
+/// el saco da un golpecito en cada movimiento; no se apilan sueltos por fuera.
+///
+/// No tiene tope: el único que lo tiene es el carrito, que se lleva de una vez
+/// tantos como quepan en él. Así los encargos se pueden ir acumulando mientras
+/// el carrito está de viaje, y nadie se queda bloqueado esperando sitio.
 /// </summary>
 public class ItemStack : MonoBehaviour, IItemContainer
 {
@@ -17,19 +20,16 @@ public class ItemStack : MonoBehaviour, IItemContainer
     [Tooltip("Punto al que se acerca quien carga o descarga. Si es null, usa este transform")]
     [SerializeField] private Transform accessPoint;
 
-    [Header("Capacidad")]
-    [Tooltip("Cuántos encargos caben. Al llegar a este número el saco está listo para que venga el carrito")]
-    [SerializeField] private int capacity = 5;
-
     [Header("Visual")]
     [SerializeField] private Sack sack;
 
     private readonly List<ItemOrder> _orders = new();
 
     public int Count => _orders.Count;
-    public int Capacity => capacity;
-    public bool HasSpace => _orders.Count < capacity;
-    public bool IsFull => _orders.Count >= capacity;
+
+    /// <summary>Sin tope.</summary>
+    public int Capacity => 0;
+    public bool HasSpace => true;
 
     /// <summary>Lo que hay dentro, para poder buscar un encargo concreto.</summary>
     public IReadOnlyList<ItemOrder> Orders => _orders;
@@ -39,12 +39,19 @@ public class ItemStack : MonoBehaviour, IItemContainer
     /// <summary>La boca del saco: donde aterrizan los objetos que llegan.</summary>
     public Vector3 ContentsPos => sack != null ? sack.MouthPos : transform.position;
 
+    /// <summary>
+    /// Ha entrado o salido algo. Lo escucha la mesa para decidir si puede
+    /// esconder su bolsa de terminados: mientras queden objetos dentro tiene
+    /// que seguir viéndose, aunque ya no se use.
+    /// </summary>
+    public event Action OnChanged;
+
     private void Awake() => RefreshVisual(pop: false);
 
     // ── IItemContainer ───────────────────────────────────────────────
     public bool TryEnqueue(ItemOrder order)
     {
-        if (order == null || !HasSpace) return false;
+        if (order == null) return false;
 
         _orders.Add(order);
         RefreshVisual(pop: true);
@@ -88,10 +95,10 @@ public class ItemStack : MonoBehaviour, IItemContainer
 
     private void RefreshVisual(bool pop)
     {
-        if (sack == null) return;
+        if (!pop) return;
 
-        sack.SetFill(_orders.Count, capacity);
-        if (pop) sack.Pop();
+        sack?.Pop();
+        OnChanged?.Invoke();
     }
 
 #if UNITY_EDITOR

@@ -31,13 +31,14 @@ public class CartWorker : WorkerBase
     [SerializeField] private RepairProgressUI progressUI;
 
     [Header("Cuándo sale")]
-    [Tooltip("Esperar a que la bolsa de origen esté llena antes de ir a por ella")]
-    [SerializeField] private bool waitForFullBag = true;
+    [Tooltip("Esperar a que haya esperando tantos encargos como quepan en el carrito, " +
+             "para no hacer el viaje medio vacío")]
+    [SerializeField] private bool waitForFullCart = true;
 
-    [Tooltip("Segundos como mucho esperando a que se llene. 0 = esperar lo que haga falta. " +
-             "Ponerlo a un valor > 0 evita que los encargos se queden ahí para siempre " +
-             "si dejan de llegar clientes")]
-    [SerializeField] private float maxWaitForFullBag = 0f;
+    [Tooltip("Segundos como mucho esperando a juntar un carro lleno. 0 = esperar lo que " +
+             "haga falta. Ponerlo a un valor > 0 evita que los encargos se queden ahí " +
+             "para siempre si dejan de llegar clientes")]
+    [SerializeField] private float maxWaitForFullCart = 0f;
 
     [Header("Tiempos")]
     [Tooltip("Duración del saltito de cada encargo al subir al carrito")]
@@ -124,7 +125,19 @@ public class CartWorker : WorkerBase
         }
     }
 
-    /// <summary>Espera a tener motivo para salir: la bolsa llena, o al menos algo.</summary>
+    /// <summary>
+    /// Cuántos se lleva por viaje. 0 si no hay carrito asignado, que aquí
+    /// significa "sin tope": se llevaría lo que hubiera.
+    /// </summary>
+    private int CartCapacity => cart != null ? cart.Capacity : 0;
+
+    /// <summary>
+    /// Espera a tener motivo para salir: que haya juntados tantos encargos
+    /// como quepan en el carrito, o al menos uno.
+    ///
+    /// Antes esperaba a que la bolsa de origen estuviese llena, pero las
+    /// bolsas ya no tienen tope, así que el que marca el lote es el carrito.
+    /// </summary>
     private IEnumerator WaitForCargo()
     {
         float waited = 0f;
@@ -133,10 +146,11 @@ public class CartWorker : WorkerBase
         {
             if (_source.Count > 0)
             {
-                if (!waitForFullBag || _source.IsFull) yield break;
+                bool cartWouldBeFull = CartCapacity <= 0 || _source.Count >= CartCapacity;
+                if (!waitForFullCart || cartWouldBeFull) yield break;
 
                 waited += Time.deltaTime;
-                if (maxWaitForFullBag > 0f && waited >= maxWaitForFullBag) yield break;
+                if (maxWaitForFullCart > 0f && waited >= maxWaitForFullCart) yield break;
             }
             else
             {
@@ -151,7 +165,8 @@ public class CartWorker : WorkerBase
 
     private IEnumerator LoadRoutine()
     {
-        int room = cart != null ? cart.Capacity : _source.Capacity;
+        // Sin carrito asignado no hay tope: se lleva lo que haya.
+        int room = CartCapacity > 0 ? CartCapacity : _source.Count;
         int toMove = Mathf.Min(room, _source.Count);
 
         // El círculo dura exactamente lo que el trasiego: un saltito por objeto.

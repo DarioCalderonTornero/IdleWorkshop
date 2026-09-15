@@ -23,8 +23,17 @@ public static class SortingOrders
     public const int Actor = 30;
 
     /// <summary>
-    /// El objeto que se está restaurando. Va por encima de los actores a
-    /// propósito: tiene que verse siempre, lo lleve quien lo lleve.
+    /// El saco de las bolsas y del carrito. Por encima de los actores, para que
+    /// el que empuja el carrito no tape lo que lleva, pero por debajo del
+    /// objeto: si empatan con él, Unity elige el orden por su cuenta y el
+    /// objeto desaparece detrás del saco a ratos.
+    /// </summary>
+    public const int Sack = 35;
+
+    /// <summary>
+    /// El objeto que se está restaurando. Por encima de todo lo del taller a
+    /// propósito: tiene que verse siempre, lo lleve quien lo lleve y esté
+    /// dentro del saco que esté. Solo los textos y círculos lo tapan.
     /// </summary>
     public const int Item = 40;
 

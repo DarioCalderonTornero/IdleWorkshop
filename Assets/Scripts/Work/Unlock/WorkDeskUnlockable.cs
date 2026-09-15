@@ -1,13 +1,13 @@
 using UnityEngine;
 
-public class WorkDeskUnlockable : MonoBehaviour
+public class WorkDeskUnlockable : MonoBehaviour, IUnlockable
 {
     [System.Serializable]
     public class LevelRequirement
     {
-        [Tooltip("Mesa que debe tener el nivel mínimo")]
+        [Tooltip("Mesa que debe tener el nivel mï¿½nimo")]
         public WorkDeskUpgradeable desk;
-        [Tooltip("Nivel mínimo requerido")]
+        [Tooltip("Nivel mï¿½nimo requerido")]
         public int minLevel;
     }
 
@@ -15,7 +15,7 @@ public class WorkDeskUnlockable : MonoBehaviour
     [SerializeField] private double unlockCost = 500;
 
     [Header("Requisitos de nivel (opcional)")]
-    [Tooltip("Mesas que deben estar en un nivel mínimo para poder desbloquear esta")]
+    [Tooltip("Mesas que deben estar en un nivel mï¿½nimo para poder desbloquear esta")]
     [SerializeField] private LevelRequirement[] levelRequirements;
 
     [Header("Visual")]
@@ -57,7 +57,7 @@ public class WorkDeskUnlockable : MonoBehaviour
         return true;
     }
 
-    // Devuelve una descripción de qué requisitos faltan (para mostrar en UI)
+    // Devuelve una descripciï¿½n de quï¿½ requisitos faltan (para mostrar en UI)
     public string GetMissingRequirementsText()
     {
         if (levelRequirements == null) return "";
@@ -68,7 +68,7 @@ public class WorkDeskUnlockable : MonoBehaviour
             if (req.desk == null) continue;
             if (req.desk.CurrentLevel < req.minLevel)
             {
-                sb.AppendLine($"• {req.desk.UpgradeData?.elementName ?? req.desk.gameObject.name} " +
+                sb.AppendLine($"ï¿½ {req.desk.UpgradeData?.elementName ?? req.desk.gameObject.name} " +
                               $"nivel {req.minLevel} (actual: {req.desk.CurrentLevel})");
             }
         }

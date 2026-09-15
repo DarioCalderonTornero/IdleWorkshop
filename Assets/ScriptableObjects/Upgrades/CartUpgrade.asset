@@ -9,18 +9,14 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1fbf50a40f7ba22448ae113ef7d56b47, type: 3}
+  m_Script: {fileID: 11500000, guid: 0a1ce09adf7d43528ab15af5e03dc7be, type: 3}
   m_Name: CartUpgrade
-  m_EditorClassIdentifier: Assembly-CSharp::UpgradeData
+  m_EditorClassIdentifier: Assembly-CSharp::CartUpgradeData
   elementName: Carrito
   description: "Transporta los objetos m\xE1s r\xE1pido entre recepci\xF3n y taller."
   elementImage: {fileID: 0}
   baseCost: 250
   growthFactor: 1.5
   maxLevel: 20
-  timeReductionPerLevel: 0.05
-  rewardIncreasePerLevel: 0.1
-  baseStarChance: 10
-  starChanceIncreasePerLevel: 1
-  maxStarChance: 50
   evolutionStages: []
+  moveSpeedMultiplierPerLevel: 0.12

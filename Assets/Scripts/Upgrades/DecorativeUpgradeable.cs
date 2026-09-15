@@ -13,6 +13,9 @@ public class DecorativeUpgradeable : UpgradeableBase
 
     private WorkStation _workStation;
 
+    // No lee nada específico del SO: le vale cualquiera.
+    public override System.Type ExpectedDataType => typeof(UpgradeData);
+
     public DecorativeEffectType EffectType => effectType;
     public float CurrentBonus => (CurrentLevel - 1) * bonusPerLevel;
 

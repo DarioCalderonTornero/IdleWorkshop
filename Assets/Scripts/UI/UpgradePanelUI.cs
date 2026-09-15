@@ -1,4 +1,4 @@
-﻿// UpgradePanelUI.cs
+// UpgradePanelUI.cs
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -23,7 +23,7 @@ public class UpgradePanelUI : SlidingPanelUI
     [SerializeField] private Button unlockButton;          // botón grande de desbloquear
     [SerializeField] private TextMeshProUGUI unlockCostText;
 
-    private WorkDeskUnlockable currentUnlockable;
+    private IUnlockable currentUnlockable;
 
     [Header("Barra de evolución")]
     [SerializeField] private Image evolutionBarFill;
@@ -49,7 +49,7 @@ public class UpgradePanelUI : SlidingPanelUI
 
     // ── API pública ──────────────────────────────────────────────────
 
-    public void ShowUnlock(WorkDeskUnlockable unlockable)
+    public void ShowUnlock(IUnlockable unlockable)
     {
         if (state == PanelState.Visible && currentUnlockable == unlockable) return;
 
@@ -90,6 +90,11 @@ public class UpgradePanelUI : SlidingPanelUI
     {
         if (state == PanelState.Visible && currentTarget == target) return;
 
+        // Un panel que no se puede rellenar no se abre. Antes esto entraba
+        // igual y petaba dentro de RefreshUI con un NullReference, y al caerse
+        // ahí se quedaban todos los menús inservibles.
+        if (!CanShow(target)) return;
+
         currentTarget = target;
         currentUnlockable = null;
 
@@ -122,17 +127,40 @@ public class UpgradePanelUI : SlidingPanelUI
 
     // ── UI ───────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// Si se puede abrir el panel para este objetivo. Un mejorable sin
+    /// UpgradeData no es un caso raro de runtime: pasa cuando algo quedó mal
+    /// cableado en el inspector o en el builder, y conviene que se vea en la
+    /// consola señalando al objeto culpable en vez de caerse.
+    /// </summary>
+    private bool CanShow(IUpgradeable target)
+    {
+        if (target == null) return false;
+
+        if (target.UpgradeData == null)
+        {
+            Debug.LogError(
+                $"[UpgradePanelUI] '{(target as Object)?.name ?? target.GetType().Name}' " +
+                $"no tiene UpgradeData asignado, así que no hay nada que mostrar. " +
+                $"Asígnaselo en el inspector o reconstruye el taller.",
+                target as Object);
+            return false;
+        }
+
+        return true;
+    }
+
     void RefreshUI()
     {
-        if (currentTarget == null) return;
+        if (!CanShow(currentTarget)) return;
 
         UpgradeData data = currentTarget.UpgradeData;
         int level = currentTarget.CurrentLevel;
 
-        elementImage.sprite = data.elementImage;
-        elementNameText.text = data.elementName;
-        levelText.text = $"Nivel {level}";
-        descriptionText.text = data.description;
+        if (elementImage != null) elementImage.sprite = data.elementImage;
+        if (elementNameText != null) elementNameText.text = data.elementName;
+        if (levelText != null) levelText.text = $"Nivel {level}";
+        if (descriptionText != null) descriptionText.text = data.description;
 
         var (floor, ceiling) = data.GetCurrentStageRange(level);
         float progress = ceiling > floor ? (float)(level - floor) / (ceiling - floor) : 1f;
@@ -140,11 +168,13 @@ public class UpgradePanelUI : SlidingPanelUI
             evolutionBarFill.fillAmount = Mathf.Clamp01(progress);
 
         bool maxLevel = level >= data.maxLevel;
-        upgradeButton.interactable = !maxLevel && currentTarget.CanUpgrade();
+        if (upgradeButton != null)
+            upgradeButton.interactable = !maxLevel && currentTarget.CanUpgrade();
 
-        upgradeCostText.text = maxLevel
-            ? "Nivel máximo"
-            : $"{CurrencyFormatter.Format(data.GetCostForLevel(level))}";
+        if (upgradeCostText != null)
+            upgradeCostText.text = maxLevel
+                ? "Nivel máximo"
+                : $"{CurrencyFormatter.Format(data.GetCostForLevel(level))}";
     }
 
     void OnUpgradeClicked()

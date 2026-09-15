@@ -68,17 +68,21 @@ public class RoomUpgradePanelUI : SlidingPanelUI
             GameObject buttonGO = Instantiate(buttonPrefab, buttonsContainer);
             RoomUpgradeButtonUI buttonUI = buttonGO.GetComponent<RoomUpgradeButtonUI>();
 
-            if (element.unlockableTarget != null)
-            {
-                WorkDeskUnlockable unlockable = element.unlockableTarget;
+            IUnlockable unlockable = element.Unlockable;
 
+            if (unlockable != null)
+            {
                 if (!unlockable.IsUnlocked)
                 {
                     buttonUI.Setup(element.icon, true, () => UpgradePanelUI.Instance.ShowUnlock(unlockable));
                 }
                 else
                 {
-                    IUpgradeable upgradeable = unlockable.GetComponent<IUpgradeable>();
+                    // Ya desbloqueado: se muestra su mejora. Se prefiere la
+                    // asignada a mano y, si no la hay, la del mismo GameObject.
+                    IUpgradeable upgradeable = element.upgradeableTarget as IUpgradeable
+                                            ?? element.unlockableTarget.GetComponent<IUpgradeable>();
+
                     buttonUI.Setup(element.icon, false, () => UpgradePanelUI.Instance.Show(upgradeable));
                 }
             }
