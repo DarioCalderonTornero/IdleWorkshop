@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 926f6b118f7b8a24abc9c04f09eb2561, type: 3}
+  m_Name: BedroomHandlingUpgrade
+  m_EditorClassIdentifier: Assembly-CSharp::CartHandlingUpgradeData
+  elementName: "Decoraci\xF3n"
+  description: "Se mejora este componente para aumentar la velocidad de dep\xF3sito
+    de los objetos."
+  elementImage: {fileID: 0}
+  baseCost: 900
+  growthFactor: 1.5
+  maxLevel: 20
+  evolutionStages: []
+  timeReductionPerLevel: 0.05
+  minMultiplier: 0.2

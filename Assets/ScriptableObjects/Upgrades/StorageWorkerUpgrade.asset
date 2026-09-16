@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9795d89171b31604285174f11130c58f, type: 3}
+  m_Name: StorageWorkerUpgrade
+  m_EditorClassIdentifier: Assembly-CSharp::IdleWorkerUpgradeData
+  elementName: "Encargado de almac\xE9n"
+  description: Ordena el material. Cada tanda tarda lo suyo, pero paga bien.
+  elementImage: {fileID: 0}
+  baseCost: 600
+  growthFactor: 1.5
+  maxLevel: 50
+  evolutionStages: []
+  baseCoins: 1200
+  coinsPerLevel: 320
+  baseCycleTime: 90
+  timeReductionPerLevel: 1.2
+  minCycleTime: 30

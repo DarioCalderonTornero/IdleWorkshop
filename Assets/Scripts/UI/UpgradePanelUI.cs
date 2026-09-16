@@ -111,6 +111,11 @@ public class UpgradePanelUI : SlidingPanelUI
         if (state != PanelState.Visible && state != PanelState.Showing) return;
 
         AnimateToHidden(() => currentTarget = null);
+
+        // Se deshace el acercamiento: volvemos a ver la sala entera. Si el
+        // panel de sala también se está cerrando, él lo ignora y deja la
+        // cámara al jugador.
+        RoomUpgradePanelUI.Instance?.FocusOnZone();
     }
 
     // ── Detección de toque fuera ─────────────────────────────────────
@@ -180,8 +185,13 @@ public class UpgradePanelUI : SlidingPanelUI
     void OnUpgradeClicked()
     {
         if (currentTarget == null) return;
+
         currentTarget.Upgrade();
         RefreshUI();
+
+        // Si esa subida ha sacado una pieza nueva, el fantasma pasa a la
+        // siguiente; y si era la última, desaparece.
+        RoomUpgradePanelUI.Instance?.RefreshGhost();
     }
 
     void OnDestroy()

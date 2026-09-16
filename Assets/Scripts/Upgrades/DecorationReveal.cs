@@ -14,7 +14,7 @@ using UnityEngine;
 /// disponibles (la sala de espera, para sentar clientes) pregunta por
 /// <see cref="VisibleCount"/> en vez de volver a calcularlo por su cuenta.
 /// </summary>
-public class DecorationReveal : MonoBehaviour
+public class DecorationReveal : MonoBehaviour, IUpgradePreview
 {
     [Tooltip("Las piezas, en el orden en que van apareciendo")]
     [SerializeField] private GameObject[] pieces;
@@ -88,6 +88,44 @@ public class DecorationReveal : MonoBehaviour
 
         return Mathf.Clamp(
             upgrade.UpgradeData.GetReachedStageCount(upgrade.CurrentLevel), 0, PieceCount);
+    }
+
+    /// <summary>
+    /// La siguiente pieza que va a salir, pero solo cuando falta justo una
+    /// mejora para que salga.
+    ///
+    /// Enseñarla desde mucho antes la convertiría en parte del decorado: se
+    /// vería igual con 1 nivel que con 20 por delante y dejaría de significar
+    /// nada. Apareciendo solo en el nivel anterior es un aviso de que la
+    /// siguiente compra saca algo.
+    ///
+    /// Bloqueada es el otro caso: ahí lo que falta es comprarla, y el aviso va
+    /// en el botón de desbloquear.
+    /// </summary>
+    public bool TryGetPreview(out GameObject sample, out Vector3 position)
+    {
+        sample = null;
+        position = Vector3.zero;
+
+        if (pieces == null) return false;
+
+        int next = IsUnlocked ? VisibleCount : 0;
+        if (next >= pieces.Length || pieces[next] == null) return false;
+
+        if (IsUnlocked && !IsOnePieceAway()) return false;
+
+        sample = pieces[next];
+        position = pieces[next].transform.position;
+        return true;
+    }
+
+    /// <summary>Si con una sola mejora más aparece la siguiente pieza.</summary>
+    private bool IsOnePieceAway()
+    {
+        if (upgrade == null || upgrade.UpgradeData == null) return false;
+
+        int threshold = upgrade.UpgradeData.GetNextStageThreshold(upgrade.CurrentLevel);
+        return threshold >= 0 && upgrade.CurrentLevel == threshold - 1;
     }
 
     private void ApplyVisibility()

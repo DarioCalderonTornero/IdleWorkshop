@@ -83,6 +83,21 @@ public abstract class UpgradeData : ScriptableObject
     }
 
     /// <summary>
+    /// El nivel al que se alcanza el siguiente tramo, o -1 si ya no queda
+    /// ninguno por delante.
+    ///
+    /// Lo usa el fantasma para saber si falta exactamente una mejora para que
+    /// algo aparezca: solo entonces se adelanta.
+    /// </summary>
+    public int GetNextStageThreshold(int currentLevel)
+    {
+        foreach (var stage in evolutionStages)
+            if (stage.levelThreshold > currentLevel) return stage.levelThreshold;
+
+        return -1;
+    }
+
+    /// <summary>
     /// Devuelve el sprite correspondiente al nivel actual, según el último
     /// umbral de evolución alcanzado. Null si aún no se alcanzó ninguno, o si
     /// esta mejora no cambia de sprite (en ese caso, se usa el sprite base del

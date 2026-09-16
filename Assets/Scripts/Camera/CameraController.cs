@@ -35,8 +35,28 @@ public class CameraController : MonoBehaviour
     [Tooltip("Sensibilidad del zoom por rueda de ratón (el pinch tiene su propia sensibilidad en InputManager).")]
     [SerializeField] private float scrollZoomSensitivity = 0.5f;
 
-    [Header("Enfoque de habitación")]
+    [Header("Enfoque")]
+    [Tooltip("Lo que tarda en encuadrar una sala")]
     [SerializeField] private float focusDuration = 0.5f;
+
+    [Tooltip("Zoom al que se acerca al tocar una mejora concreta. Más bajo = más cerca")]
+    [SerializeField] private float elementZoom = 3f;
+
+    [Tooltip("Lo que tarda en acercarse a una mejora. Algo más corto que el de sala: " +
+             "es un salto más pequeño y si dura lo mismo se siente lento")]
+    [SerializeField] private float elementFocusDuration = 0.35f;
+
+    [Tooltip("Aire que se deja al encuadrar la mejora junto a lo que va a aparecer, " +
+             "para que no queden pegados al borde")]
+    [SerializeField] private float focusMargin = 0.8f;
+
+    /// <summary>El encuadre normal de una sala.</summary>
+    public float DefaultZoom => defaultZoom;
+
+    /// <summary>El encuadre de cerca, para una mejora concreta.</summary>
+    public float ElementZoom => Mathf.Clamp(elementZoom, zoomMin, zoomMax);
+
+    public float ElementFocusDuration => elementFocusDuration;
 
     private Camera _cam;
     private bool _isDragging;
@@ -198,15 +218,55 @@ public class CameraController : MonoBehaviour
         return _cam.ScreenToWorldPoint(pos);
     }
 
-    // ── Foco de habitación ──────────────────────────────────────────
-    public void FocusOn(Vector3 targetPosition)
+    // ── Foco ─────────────────────────────────────────────────────────
+
+    /// <summary>Encuadra una sala, al zoom normal.</summary>
+    public void FocusOn(Vector3 targetPosition) =>
+        FocusOn(targetPosition, defaultZoom, focusDuration);
+
+    /// <summary>
+    /// Se acerca a una mejora concreta dentro de la sala ya encuadrada.
+    /// </summary>
+    public void FocusOnElement(Vector3 targetPosition) =>
+        FocusOn(targetPosition, ElementZoom, elementFocusDuration);
+
+    /// <summary>
+    /// Encuadra dos puntos a la vez: la mejora y lo que va a aparecer.
+    ///
+    /// Se usa cuando lo nuevo sale lejos de donde está la mejora —una pieza de
+    /// decoración al otro lado de la sala, por ejemplo—: acercarse solo a la
+    /// mejora dejaría el fantasma fuera de pantalla, que es justo lo que se
+    /// quería enseñar. Si ambos caben de cerca, se queda de cerca.
+    /// </summary>
+    public void FocusOnElementAnd(Vector3 targetPosition, Vector3 alsoShow)
+    {
+        Vector3 centre = (targetPosition + alsoShow) * 0.5f;
+
+        // El tamaño ortográfico es media altura; el ancho sale del aspecto.
+        float halfHeight = Mathf.Abs(targetPosition.y - alsoShow.y) * 0.5f;
+        float halfWidth = Mathf.Abs(targetPosition.x - alsoShow.x) * 0.5f;
+
+        float needed = Mathf.Max(halfHeight, halfWidth / Mathf.Max(0.01f, _cam.aspect));
+        float zoom = Mathf.Max(ElementZoom, needed + focusMargin);
+
+        FocusOn(centre, zoom, elementFocusDuration);
+    }
+
+    /// <summary>
+    /// Lleva la cámara a un sitio y a un zoom, suave.
+    ///
+    /// Si ya había un enfoque en marcha se corta y el nuevo arranca desde donde
+    /// esté la cámara ahora mismo, no desde donde debería haber estado: así
+    /// tocar dos mejoras seguidas encadena sin saltos.
+    /// </summary>
+    public void FocusOn(Vector3 targetPosition, float zoom, float duration)
     {
         _isLocked = true;
         _isDragging = false;
         _velocity = Vector2.zero;
 
         if (_focusCoroutine != null) StopCoroutine(_focusCoroutine);
-        _focusCoroutine = StartCoroutine(FocusRoutine(targetPosition));
+        _focusCoroutine = StartCoroutine(FocusRoutine(targetPosition, zoom, duration));
     }
 
     public void Unlock()
@@ -214,20 +274,31 @@ public class CameraController : MonoBehaviour
         _isLocked = false;
     }
 
-    private IEnumerator FocusRoutine(Vector3 targetPosition)
+    private IEnumerator FocusRoutine(Vector3 targetPosition, float zoom, float duration)
     {
         Vector3 startPos = transform.position;
-        Vector3 targetPos = new Vector3(targetPosition.x, targetPosition.y, transform.position.z);
+        Vector3 targetPos = new(targetPosition.x, targetPosition.y, transform.position.z);
 
         float startSize = _cam.orthographicSize;
-        float targetSize = defaultZoom;
+        float targetSize = Mathf.Clamp(zoom, zoomMin, zoomMax);
+
+        // Con duración cero (o negativa por un ajuste raro) se pone y ya, en
+        // vez de dividir entre cero y dejar la cámara a medio camino.
+        if (duration <= 0f)
+        {
+            transform.position = targetPos;
+            _cam.orthographicSize = targetSize;
+            ClampPosition();
+            _focusCoroutine = null;
+            yield break;
+        }
 
         float elapsed = 0f;
 
-        while (elapsed < focusDuration)
+        while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
-            float t = Mathf.SmoothStep(0f, 1f, elapsed / focusDuration);
+            float t = Mathf.SmoothStep(0f, 1f, elapsed / duration);
 
             transform.position = Vector3.Lerp(startPos, targetPos, t);
             _cam.orthographicSize = Mathf.Lerp(startSize, targetSize, t);
@@ -239,6 +310,8 @@ public class CameraController : MonoBehaviour
         transform.position = targetPos;
         _cam.orthographicSize = targetSize;
         ClampPosition();
+
+        _focusCoroutine = null;
     }
 
 #if UNITY_EDITOR

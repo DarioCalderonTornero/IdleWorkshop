@@ -70,6 +70,44 @@ public class CartWorker : WorkerBase
 
     public int LoadCount => _load.Count;
 
+    // ── Velocidad de carga y descarga ────────────────────────────────
+    // Admite varias fuentes y las combina multiplicando, igual que
+    // ServiceSpeed: así dos mejoras que toquen lo mismo no se borran.
+
+    private readonly Dictionary<Object, float> _handlingSources = new();
+
+    /// <summary>Lo que multiplica ahora mismo a los tiempos de carga y descarga.</summary>
+    public float HandlingMultiplier { get; private set; } = 1f;
+
+    /// <summary>Lo que tarda un encargo en subir al carrito, ya mejorado.</summary>
+    public float LoadTimePerItem => loadTimePerItem * HandlingMultiplier;
+
+    /// <summary>Lo que tarda un encargo en bajar del carrito, ya mejorado.</summary>
+    public float UnloadTimePerItem => unloadTimePerItem * HandlingMultiplier;
+
+    public void SetHandlingMultiplier(Object source, float multiplier)
+    {
+        if (source == null) return;
+
+        _handlingSources[source] = Mathf.Clamp(multiplier, 0.01f, 10f);
+        RecalculateHandling();
+    }
+
+    public void RemoveHandlingSource(Object source)
+    {
+        if (source == null) return;
+
+        if (_handlingSources.Remove(source)) RecalculateHandling();
+    }
+
+    private void RecalculateHandling()
+    {
+        float total = 1f;
+        foreach (float m in _handlingSources.Values) total *= m;
+
+        HandlingMultiplier = Mathf.Max(0.1f, total);
+    }
+
     protected override void Awake()
     {
         base.Awake();
@@ -170,14 +208,14 @@ public class CartWorker : WorkerBase
         int toMove = Mathf.Min(room, _source.Count);
 
         // El círculo dura exactamente lo que el trasiego: un saltito por objeto.
-        Coroutine progress = StartProgress(toMove * loadTimePerItem);
+        Coroutine progress = StartProgress(toMove * LoadTimePerItem);
 
         while (_load.Count < room && _source.Count > 0)
         {
             if (!_source.TryDequeue(out ItemOrder order)) break;
 
             // Ya no está en el saco de origen: se dibuja aparte mientras salta.
-            yield return HopItem(order, _source.ContentsPos, CartContentsPos, loadTimePerItem);
+            yield return HopItem(order, _source.ContentsPos, CartContentsPos, LoadTimePerItem);
 
             _load.Add(order);
             cart?.SetLoadWithPop(_load);
@@ -188,7 +226,7 @@ public class CartWorker : WorkerBase
 
     private IEnumerator UnloadRoutine()
     {
-        Coroutine progress = StartProgress(_load.Count * unloadTimePerItem);
+        Coroutine progress = StartProgress(_load.Count * UnloadTimePerItem);
 
         while (_load.Count > 0)
         {
@@ -199,7 +237,7 @@ public class CartWorker : WorkerBase
             _load.RemoveAt(0);
             cart?.SetLoadWithPop(_load);
 
-            yield return HopItem(order, CartContentsPos, _target.ContentsPos, unloadTimePerItem);
+            yield return HopItem(order, CartContentsPos, _target.ContentsPos, UnloadTimePerItem);
 
             _target.TryEnqueue(order);
         }

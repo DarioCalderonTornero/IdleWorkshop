@@ -195,6 +195,67 @@ public static class Taller1Builder
     private static readonly Vector2 CleaningRoomCenter = new(1.60f, 4.26f);
     private static readonly Vector2 CleaningRoomSize = new(6.87f, 5.02f);
 
+    // ── Salas de la izquierda ─────────────────────────────────────────
+    // Coinciden con SueloZonaMateriales (morada) y SueloHabitacion (rosa).
+    // Ahí no entra ningún carrito: sus trabajadores no mueven objetos, así que
+    // los bloqueadores de navegación que las pisan siguen sin estorbar.
+    private static readonly Vector2 StorageCenter = new(-3.45f, 4.68f);
+    private static readonly Vector2 StorageSize = new(3.19f, 2.81f);
+
+    private static readonly Vector2 BedroomCenter = new(-3.45f, 2.00f);
+    private static readonly Vector2 BedroomSize = new(3.19f, 2.54f);
+
+    // Las dos salas se compran enteras antes de dar nada.
+    private const double StorageUnlockCost = 5000;
+    private const double BedroomUnlockCost = 12000;
+
+    // El segundo del almacén se compra aparte, ya dentro de la sala.
+    private const double StorageSecondWorkerCost = 8000;
+
+    private static readonly Vector2[] StorageWorkerSpots =
+    {
+        new(-4.15f, 4.68f), new(-2.75f, 4.68f),
+    };
+
+    // Uno cálido y otro frío: el suelo del almacén es morado, así que un
+    // trabajador morado se perdía contra él, y los dos iguales no había forma
+    // de saber cuál estabas mejorando.
+    private static readonly Color[] StorageWorkerColors =
+    {
+        new(0.91f, 0.64f, 0.24f),   // ámbar
+        new(0.18f, 0.66f, 0.63f),   // turquesa
+    };
+
+    private static readonly Vector2 IdleWorkerSize = new(0.34f, 0.62f);
+
+    // ── Habitación: el jefe y sus mejoras ─────────────────────────────
+    // No produce nada por sí misma: sus mejoras tiran de los mostradores del
+    // hall y del bonus de monedas. El personaje está por ambiente.
+    private static readonly Vector2 BedroomHome = new(-3.45f, 2.00f);
+
+    /// <summary>
+    /// La ronda del jefe, de ida. Sale de la habitación por el hueco que la
+    /// une al taller (y entre 1,75 y 3,27), baja al pasillo de abajo y sube por
+    /// el corredor central. La vuelta es la misma al revés.
+    /// </summary>
+    private static readonly Vector2[] BedroomPatrol =
+    {
+        new(-2.30f, 2.45f),   // hacia la puerta, aún dentro de la habitación
+        new(-1.40f, 2.45f),   // ya en el taller
+        new(-0.80f, 2.45f),   // al lado de la mesa 3
+        new(1.60f, 2.45f),    // pasillo de abajo
+        new(2.80f, 2.45f),    // corredor central
+        new(2.80f, 4.95f),    // entre las mesas
+        new(2.80f, 6.00f),    // fondo del taller
+    };
+
+    private static readonly Color BossColor = new(0.86f, 0.36f, 0.42f);
+
+    // De aquí no sale pase lo que pase: la habitación más el taller. Es una
+    // red de seguridad, no el camino; la ronda ya va por donde debe.
+    private static readonly Vector2 BossAreaCenter = new(-0.005f, 3.75f);
+    private static readonly Vector2 BossAreaSize = new(10.08f, 6.04f);
+
     // Nodos de la red de navegación: cruces y esquinas del espacio libre. No se
     // conectan a mano — WorkshopNavGraph calcula qué nodos se ven entre sí y
     // busca el camino más corto en cada consulta.
@@ -275,11 +336,19 @@ public static class Taller1Builder
         CartWorker outCart = BuildCart(root, "CarritoSalida", OutCartIdle, workshopOutput, pickupStack);
 
         HallAnchors hall = BuildHall(root);
-        WaitingArea waitingArea = BuildWaitingArea(root);
+        WaitingArea waitingArea = BuildWaitingArea(root, out Transform seatsFocus);
 
         // Decoraciones: suman monedas a cada cobro y van saliendo a trozos.
-        List<DecorationReveal> workshopDecorations = BuildWorkshopDecorations(root);
-        List<DecorationReveal> hallDecorations = BuildHallDecorations(root);
+        List<BuiltDecoration> workshopDecorations = BuildWorkshopDecorations(root);
+        List<BuiltDecoration> hallDecorations = BuildHallDecorations(root);
+
+        // El almacén y la habitación: se compran enteras. El almacén produce
+        // por su cuenta; la habitación mejora lo que ya hay en el hall.
+        BuildStorageRoom(root);
+        BuildBedroom(root,
+            dropOff.GetComponent<ServiceSpeed>(),
+            pickup.GetComponent<ServiceSpeed>(),
+            new List<CartWorker> { inCart, outCart });
 
         WireWorkStation(station, dropOff, pickup, desks,
             new List<CartWorker> { inCart, outCart }, root.transform, workshopDecorations);
@@ -291,10 +360,12 @@ public static class Taller1Builder
             dropOff.GetComponent<ServiceSpeed>(),
             pickup.GetComponent<ServiceSpeed>(),
             waitingArea,
+            seatsFocus,
             hallDecorations);
 
         WireCustomerManager(dropOff, pickup, waitingArea, hall);
         WireUnlocker(station);
+        WireTapHandler();
 
         VerifyUpgradeablesWired(root);
 
@@ -552,9 +623,17 @@ public static class Taller1Builder
         so.ApplyModifiedPropertiesWithoutUndo();
     }
 
-    /// <summary>Marca un mueble para que los carritos lo rodeen.</summary>
+    /// <summary>
+    /// Marca un mueble para que los carritos lo rodeen y para que nadie lo
+    /// atraviese andando.
+    ///
+    /// Son dos cosas distintas a propósito: los carritos usan la red de
+    /// navegación (NavObstacle) y quien anda a pie usa colliders de verdad.
+    /// </summary>
     private static void MarkAsObstacle(GameObject go)
     {
+        MakeSolid(go);
+
         if (go.GetComponent<NavObstacle>() == null)
             go.AddComponent<NavObstacle>();
     }
@@ -708,11 +787,11 @@ public static class Taller1Builder
     /// el primer asiento que se compra queda a la vista, junto al mostrador, y
     /// la sala va creciendo hacia el fondo en vez de empezar por la esquina.
     /// </summary>
-    private static WaitingArea BuildWaitingArea(GameObject root)
+    private static WaitingArea BuildWaitingArea(GameObject root, out Transform focus)
     {
         // Los asientos son una decoración más: se compran, suman monedas y van
         // apareciendo a trozos. Lo único suyo es que además reparten sitios.
-        DecorationReveal reveal = BuildDecoration(root, new DecorationSpec
+        BuiltDecoration built = BuildDecoration(root, new DecorationSpec
         {
             ObjectName = "Asiento",
             DisplayName = "Asientos",
@@ -724,6 +803,9 @@ public static class Taller1Builder
             PieceColor = new Color(0.35f, 0.42f, 0.55f),
             Thresholds = SeatLevelThresholds,
         });
+
+        DecorationReveal reveal = built.Reveal;
+        focus = built.Focus;
 
         reveal.gameObject.name = "SalaEspera";
 
@@ -772,7 +854,7 @@ public static class Taller1Builder
     private static void WireWorkStation(
         WorkStation station, ReceptionDesk dropOff, PickupDesk pickup,
         List<WorkDeskUnlockable> desks, List<CartWorker> carts, Transform root,
-        List<DecorationReveal> decorations)
+        List<BuiltDecoration> decorations)
     {
         // La cámara se centra en la sala naranja, que es la que se toca.
         Transform focus = NewChild(root, "CameraFocusPoint", CleaningRoomCenter).transform;
@@ -801,7 +883,7 @@ public static class Taller1Builder
     /// </summary>
     private static void BuildWorkshopZone(
         GameObject root, Transform focus, List<WorkDeskUnlockable> desks,
-        List<DecorationReveal> decorations)
+        List<BuiltDecoration> decorations)
     {
         var elements = new List<ZoneElement>();
         Sprite deskIcon = DeskIcon();
@@ -827,22 +909,23 @@ public static class Taller1Builder
     /// Las decoraciones como entradas del panel. Empiezan bloqueadas, así que
     /// el panel las enseña primero como compra y luego como mejora.
     /// </summary>
-    private static List<ZoneElement> DecorationElements(List<DecorationReveal> decorations)
+    private static List<ZoneElement> DecorationElements(List<BuiltDecoration> decorations)
     {
         var elements = new List<ZoneElement>();
         if (decorations == null) return elements;
 
         Sprite icon = DecorationIcon();
 
-        foreach (DecorationReveal decoration in decorations)
+        foreach (BuiltDecoration decoration in decorations)
         {
-            if (decoration == null) continue;
+            if (decoration?.Reveal == null) continue;
 
             elements.Add(new ZoneElement
             {
-                Unlockable = decoration.GetComponent<Unlockable>(),
-                Upgradeable = decoration.GetComponent<CoinBonusUpgradeable>(),
+                Unlockable = decoration.Reveal.GetComponent<Unlockable>(),
+                Upgradeable = decoration.Reveal.GetComponent<CoinBonusUpgradeable>(),
                 Icon = icon,
+                Focus = decoration.Focus,
             });
         }
 
@@ -854,9 +937,9 @@ public static class Taller1Builder
     /// en la columna de la derecha. Ninguna se cruza con los atraques de los
     /// carritos ni con las mesas.
     /// </summary>
-    private static List<DecorationReveal> BuildWorkshopDecorations(GameObject root)
+    private static List<BuiltDecoration> BuildWorkshopDecorations(GameObject root)
     {
-        return new List<DecorationReveal>
+        return new List<BuiltDecoration>
         {
             BuildDecoration(root, new DecorationSpec
             {
@@ -891,9 +974,9 @@ public static class Taller1Builder
     /// derecha del carril de entrega y lámparas en el hueco entre los asientos
     /// y el carril de recogida. Nada se pone en el camino de los clientes.
     /// </summary>
-    private static List<DecorationReveal> BuildHallDecorations(GameObject root)
+    private static List<BuiltDecoration> BuildHallDecorations(GameObject root)
     {
-        return new List<DecorationReveal>
+        return new List<BuiltDecoration>
         {
             BuildDecoration(root, new DecorationSpec
             {
@@ -979,8 +1062,9 @@ public static class Taller1Builder
     /// la cámara se centra en él.
     /// </summary>
     private static void BuildReceptionZone(
-        GameObject root, ServiceSpeed dropOffSpeed, ServiceSpeed pickupSpeed, WaitingArea seats,
-        List<DecorationReveal> decorations)
+        GameObject root, ServiceSpeed dropOffSpeed, ServiceSpeed pickupSpeed,
+        WaitingArea seats, Transform seatsFocus,
+        List<BuiltDecoration> decorations)
     {
         GameObject go = NewChild(root.transform, "ZonaRecepciones", Vector2.zero);
 
@@ -1000,7 +1084,7 @@ public static class Taller1Builder
 
             SerializedObject deskSo = new(upgradeable);
             deskSo.FindProperty("upgradeData").objectReferenceValue = ReceptionData();
-            deskSo.FindProperty("serviceSpeed").objectReferenceValue = desk;
+            SetObjectList(deskSo.FindProperty("serviceSpeeds"), new List<ServiceSpeed> { desk });
             deskSo.ApplyModifiedPropertiesWithoutUndo();
 
             elements.Add(new ZoneElement { Upgradeable = upgradeable, Icon = ReceptionIcon() });
@@ -1015,6 +1099,7 @@ public static class Taller1Builder
                 Unlockable = seats.GetComponent<Unlockable>(),
                 Upgradeable = seats.GetComponent<CoinBonusUpgradeable>(),
                 Icon = SeatsIcon(),
+                Focus = seatsFocus,
             });
         }
 
@@ -1049,7 +1134,14 @@ public static class Taller1Builder
     /// propio código copiado, arreglar algo en una dejaría las otras cuatro con
     /// el fallo. Los asientos son una de estas, solo que además reparten sitios.
     /// </summary>
-    private static DecorationReveal BuildDecoration(GameObject root, DecorationSpec spec)
+    /// <summary>Una decoración montada, con el punto al que mira la cámara.</summary>
+    private class BuiltDecoration
+    {
+        public DecorationReveal Reveal;
+        public Transform Focus;
+    }
+
+    private static BuiltDecoration BuildDecoration(GameObject root, DecorationSpec spec)
     {
         GameObject group = NewChild(root.transform, spec.ObjectName, Vector2.zero);
 
@@ -1060,6 +1152,11 @@ public static class Taller1Builder
         {
             GameObject piece = NewChild(group.transform, $"{spec.ObjectName}{i + 1:00}", spec.Pieces[i]);
             SpriteRenderer body = AddSquare(piece, spec.PieceSize, spec.PieceColor, OrderFurniture);
+
+            // Las decoraciones también frenan a quien anda. Al estar escondidas
+            // su collider se apaga con ellas, que es justo lo que se quiere:
+            // lo que no se ve no estorba.
+            MakeSolid(piece);
 
             pieces.Add(piece);
             poofs.Add(AddPoof(piece, body));
@@ -1089,7 +1186,15 @@ public static class Taller1Builder
         revealSo.FindProperty("upgrade").objectReferenceValue = bonus;
         revealSo.ApplyModifiedPropertiesWithoutUndo();
 
-        return reveal;
+        // El grupo está en el origen y sus piezas repartidas por la sala, así
+        // que sin un punto propio la cámara se iría a (0,0) al tocar la mejora.
+        // Se pone en el centro de lo que ocupan las piezas.
+        Vector2 sum = Vector2.zero;
+        foreach (Vector2 piece in spec.Pieces) sum += piece;
+
+        Transform focus = NewChild(group.transform, "Foco", sum / spec.Pieces.Length).transform;
+
+        return new BuiltDecoration { Reveal = reveal, Focus = focus };
     }
 
     /// <summary>
@@ -1111,22 +1216,367 @@ public static class Taller1Builder
         return poof;
     }
 
+    // ── Salas de trabajadores en bucle ────────────────────────────────
+
+    /// <summary>Todo lo que define una de las dos salas de la izquierda.</summary>
+    private class SideRoomSpec
+    {
+        public string ObjectName;
+        public string ZoneName;
+        public Vector2 Center;
+        public Vector2 Size;
+        public double UnlockCost;
+        public Vector2[] WorkerSpots;
+        public Color[] WorkerColors;
+        public string AssetPath;
+        public string WorkerName;
+        public string WorkerDescription;
+
+        /// <summary>
+        /// Coste de comprar cada trabajador por separado. El primero entra con
+        /// la sala, así que su entrada va a 0.
+        /// </summary>
+        public double[] WorkerUnlockCosts;
+
+        public int BaseCoins;
+        public int CoinsPerLevel;
+        public float BaseCycleTime;
+        public float TimeReductionPerLevel;
+        public float MinCycleTime;
+    }
+
+    /// <summary>
+    /// Monta una de las salas de la izquierda: el almacén o la habitación.
+    ///
+    /// La sala entera se compra primero —hasta entonces el panel solo ofrece
+    /// desbloquearla— y dentro lleva uno o dos trabajadores que trabajan en
+    /// bucle y cobran al terminar cada tanda. Cada trabajador es además una
+    /// mejora de la sala.
+    /// </summary>
+    private static void BuildSideRoom(GameObject root, SideRoomSpec spec)
+    {
+        GameObject go = NewChild(root.transform, spec.ObjectName, Vector2.zero);
+
+        BoxCollider2D box = go.AddComponent<BoxCollider2D>();
+        box.offset = spec.Center;
+        box.size = spec.Size;
+
+        Transform focus = NewChild(go.transform, "CameraFocusPoint", spec.Center).transform;
+
+        // La compra de la sala. No revela nada por su cuenta: de quién se ve y
+        // quién trabaja se encarga cada IdleWorker, que mira este desbloqueo.
+        Unlockable roomLock = go.AddComponent<Unlockable>();
+        SerializedObject roomSo = new(roomLock);
+        roomSo.FindProperty("unlockCost").doubleValue = spec.UnlockCost;
+        roomSo.FindProperty("unlockedByDefault").boolValue = false;
+        roomSo.FindProperty("revealOnUnlock").arraySize = 0;
+        roomSo.ApplyModifiedPropertiesWithoutUndo();
+
+        IdleWorkerUpgradeData data = IdleWorkerData(spec);
+        var elements = new List<ZoneElement>();
+
+        for (int i = 0; i < spec.WorkerSpots.Length; i++)
+        {
+            double cost = spec.WorkerUnlockCosts != null && i < spec.WorkerUnlockCosts.Length
+                ? spec.WorkerUnlockCosts[i]
+                : 0;
+
+            elements.Add(BuildIdleWorker(go, spec, data, i, roomLock, cost));
+        }
+
+        WireZone(go, focus, spec.ZoneName, elements, roomLock, RoomIcon());
+    }
+
+    /// <summary>
+    /// Un trabajador de sala: su muñeco, su círculo de progreso y su mejora.
+    /// El primero de la sala entra con ella; los siguientes se compran aparte.
+    /// </summary>
+    private static ZoneElement BuildIdleWorker(
+        GameObject room, SideRoomSpec spec, IdleWorkerUpgradeData data,
+        int index, Unlockable roomLock, double ownCost)
+    {
+        Vector2 spot = spec.WorkerSpots[index];
+
+        // La raíz se queda siempre activa: es quien escucha el desbloqueo y
+        // lleva el bucle. Lo que se enciende y se apaga es el muñeco.
+        GameObject go = NewChild(room.transform, $"Trabajador{index + 1}", spot);
+
+        Color color = spec.WorkerColors != null && index < spec.WorkerColors.Length
+            ? spec.WorkerColors[index]
+            : Color.white;
+
+        GameObject bodyGO = NewChild(go.transform, "Cuerpo", spot);
+        SpriteRenderer body = AddSquare(bodyGO, IdleWorkerSize, color, OrderActor);
+        Poof poof = AddPoof(bodyGO, body);
+
+        RepairProgressUI progress = CloneProgressUI(
+            go.transform, $"Progreso{index + 1}", new Vector3(0f, 0.62f, 0f));
+
+        var gates = new List<Unlockable> { roomLock };
+
+        Unlockable ownLock = null;
+        if (ownCost > 0)
+        {
+            ownLock = go.AddComponent<Unlockable>();
+            SerializedObject ownSo = new(ownLock);
+            ownSo.FindProperty("unlockCost").doubleValue = ownCost;
+            ownSo.FindProperty("unlockedByDefault").boolValue = false;
+            ownSo.FindProperty("revealOnUnlock").arraySize = 0;
+            ownSo.ApplyModifiedPropertiesWithoutUndo();
+
+            gates.Add(ownLock);
+        }
+
+        IdleWorker worker = go.AddComponent<IdleWorker>();
+        SerializedObject workerSo = new(worker);
+        workerSo.FindProperty("body").objectReferenceValue = bodyGO.transform;
+        workerSo.FindProperty("poof").objectReferenceValue = poof;
+        workerSo.FindProperty("progressUI").objectReferenceValue = progress;
+        SetObjectList(workerSo.FindProperty("requires"), gates);
+        workerSo.ApplyModifiedPropertiesWithoutUndo();
+
+        IdleWorkerUpgradeable upgradeable = go.AddComponent<IdleWorkerUpgradeable>();
+        SerializedObject upgradeSo = new(upgradeable);
+        upgradeSo.FindProperty("upgradeData").objectReferenceValue = data;
+        upgradeSo.FindProperty("worker").objectReferenceValue = worker;
+        upgradeSo.ApplyModifiedPropertiesWithoutUndo();
+
+        return new ZoneElement
+        {
+            Unlockable = ownLock,
+            Upgradeable = upgradeable,
+            Icon = IdleWorkerIcon(),
+        };
+    }
+
+    private static IdleWorkerUpgradeData IdleWorkerData(SideRoomSpec spec) =>
+        LoadOrCreate<IdleWorkerUpgradeData>(
+            spec.AssetPath, spec.WorkerName, spec.WorkerDescription, baseCost: 600,
+            configureNew: data =>
+            {
+                data.maxLevel = 50;
+                data.baseCoins = spec.BaseCoins;
+                data.coinsPerLevel = spec.CoinsPerLevel;
+                data.baseCycleTime = spec.BaseCycleTime;
+                data.timeReductionPerLevel = spec.TimeReductionPerLevel;
+                data.minCycleTime = spec.MinCycleTime;
+            });
+
+    /// <summary>
+    /// El almacén (sala morada): se compra entera y dentro hay dos
+    /// trabajadores que cobran por tanda. El segundo se compra aparte.
+    /// </summary>
+    private static void BuildStorageRoom(GameObject root)
+    {
+        BuildSideRoom(root, new SideRoomSpec
+        {
+            ObjectName = "Almacen",
+            ZoneName = "Almacén",
+            Center = StorageCenter,
+            Size = StorageSize,
+            UnlockCost = StorageUnlockCost,
+            WorkerSpots = StorageWorkerSpots,
+            WorkerUnlockCosts = new[] { 0d, StorageSecondWorkerCost },
+            WorkerColors = StorageWorkerColors,
+            AssetPath = "Assets/ScriptableObjects/Upgrades/StorageWorkerUpgrade.asset",
+            WorkerName = "Encargado de almacén",
+            WorkerDescription = "Ordena el material. Cada tanda tarda lo suyo, pero paga bien.",
+            BaseCoins = 1200,
+            CoinsPerLevel = 320,
+            BaseCycleTime = 90f,
+            TimeReductionPerLevel = 1.2f,
+            MinCycleTime = 30f,
+        });
+    }
+
+    /// <summary>
+    /// La habitación (sala rosa). No produce nada por sí misma: lo que se
+    /// mejora aquí son los mostradores del hall y lo que pagan los objetos.
+    /// El personaje es el jefe, que sale a dar una vuelta por el taller y
+    /// vuelve; está por ambiente y no cobra nada.
+    /// </summary>
+    private static void BuildBedroom(
+        GameObject root, ServiceSpeed dropOffSpeed, ServiceSpeed pickupSpeed,
+        List<CartWorker> carts)
+    {
+        GameObject go = NewChild(root.transform, "Habitacion", Vector2.zero);
+
+        BoxCollider2D box = go.AddComponent<BoxCollider2D>();
+        box.offset = BedroomCenter;
+        box.size = BedroomSize;
+
+        Transform focus = NewChild(go.transform, "CameraFocusPoint", BedroomCenter).transform;
+
+        Unlockable roomLock = go.AddComponent<Unlockable>();
+        SerializedObject roomSo = new(roomLock);
+        roomSo.FindProperty("unlockCost").doubleValue = BedroomUnlockCost;
+        roomSo.FindProperty("unlockedByDefault").boolValue = false;
+        roomSo.FindProperty("revealOnUnlock").arraySize = 0;
+        roomSo.ApplyModifiedPropertiesWithoutUndo();
+
+        BuildBoss(go, roomLock);
+
+        var elements = new List<ZoneElement>
+        {
+            // Solo los carritos, y las dos operaciones por igual.
+            BedroomHandlingUpgrade(go, carts),
+
+            // Los dos mostradores: dar el objeto y recogerlo en la otra cola.
+            BedroomServiceUpgrade(go, new[] { dropOffSpeed, pickupSpeed }),
+
+            BedroomCoinUpgrade(go, roomLock),
+        };
+
+        WireZone(go, focus, "Habitación", elements, roomLock, RoomIcon());
+    }
+
+    /// <summary>
+    /// El jefe y su ronda. Los puntos de la ronda van colgados de él para que
+    /// se vean juntos en la jerarquía y se puedan mover a ojo en la escena.
+    /// </summary>
+    private static void BuildBoss(GameObject room, Unlockable roomLock)
+    {
+        GameObject go = NewChild(room.transform, "Jefe", BedroomHome);
+
+        GameObject bodyGO = NewChild(go.transform, "Cuerpo", BedroomHome);
+        SpriteRenderer body = AddSquare(bodyGO, IdleWorkerSize, BossColor, OrderActor);
+        Poof poof = AddPoof(bodyGO, body);
+
+        // Las paradas cuelgan de la SALA, nunca del jefe. Si colgaran de él se
+        // moverían con él: perseguiría un objetivo que huye a su misma
+        // velocidad y se iría en línea recta para siempre.
+        Transform home = NewChild(room.transform, "SitioJefe", BedroomHome).transform;
+
+        GameObject routeGO = NewChild(room.transform, "RondaJefe", Vector2.zero);
+        var stops = new List<Transform>();
+
+        for (int i = 0; i < BedroomPatrol.Length; i++)
+            stops.Add(NewChild(routeGO.transform, $"Parada{i + 1:00}", BedroomPatrol[i]).transform);
+
+        RoomWanderer wanderer = go.AddComponent<RoomWanderer>();
+        SerializedObject so = new(wanderer);
+
+        // El área se mide respecto a la sala, no en coordenadas de mundo: el
+        // taller está movido de sitio en la escena y un rectángulo en mundo
+        // dejaba fuera media ronda.
+        so.FindProperty("areaReference").objectReferenceValue = room.transform;
+        so.FindProperty("areaCenter").vector2Value = BossAreaCenter;
+        so.FindProperty("areaSize").vector2Value = BossAreaSize;
+
+        int solid = LayerSetup.SolidLayerIndex;
+        if (solid >= 0) so.FindProperty("solidLayers").intValue = 1 << solid;
+
+        so.FindProperty("body").objectReferenceValue = bodyGO.transform;
+        so.FindProperty("poof").objectReferenceValue = poof;
+        so.FindProperty("home").objectReferenceValue = home;
+        SetObjectList(so.FindProperty("stops"), stops);
+        SetObjectList(so.FindProperty("requires"), new List<Unlockable> { roomLock });
+        so.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    /// <summary>
+    /// Carga y descarga: afecta solo a los carritos, y a las dos operaciones
+    /// por igual. No toca la velocidad a la que se mueven ni los mostradores.
+    /// </summary>
+    private static ZoneElement BedroomHandlingUpgrade(GameObject room, List<CartWorker> carts)
+    {
+        GameObject go = NewChild(room.transform, "MejoraCargaDescarga", BedroomCenter);
+
+        CartHandlingUpgradeable upgradeable = go.AddComponent<CartHandlingUpgradeable>();
+        SerializedObject so = new(upgradeable);
+        so.FindProperty("upgradeData").objectReferenceValue =
+            LoadOrCreate<CartHandlingUpgradeData>(
+                "Assets/ScriptableObjects/Upgrades/BedroomHandlingUpgrade.asset",
+                "Decoración",
+                "Se mejora este componente para aumentar la velocidad de depósito de los objetos.",
+                baseCost: 900);
+        SetObjectList(so.FindProperty("carts"), carts);
+        so.ApplyModifiedPropertiesWithoutUndo();
+
+        return new ZoneElement { Upgradeable = upgradeable, Icon = CartIcon() };
+    }
+
+    /// <summary>
+    /// Dar y recibir objetos: afecta a los DOS mostradores, así que mejora
+    /// tanto lo que tarda un cliente en entregar como lo que tarda en recoger
+    /// en la otra cola.
+    ///
+    /// Los mostradores no están aquí: se apunta en cada ServiceSpeed como
+    /// fuente propia, así que convive con la mejora del propio mostrador del
+    /// hall sin pisarla.
+    /// </summary>
+    private static ZoneElement BedroomServiceUpgrade(GameObject room, ServiceSpeed[] targets)
+    {
+        GameObject go = NewChild(room.transform, "MejoraAtencion", BedroomCenter);
+
+        ReceptionUpgradeable upgradeable = go.AddComponent<ReceptionUpgradeable>();
+        SerializedObject so = new(upgradeable);
+        so.FindProperty("upgradeData").objectReferenceValue =
+            LoadOrCreate<ReceptionUpgradeData>(
+                "Assets/ScriptableObjects/Upgrades/BedroomServiceUpgrade.asset",
+                "Escritorio de recogida",
+                "Se mejora este componente para aumentar la velocidad de entrega de objetos a los clientes.",
+                baseCost: 900);
+        SetObjectList(so.FindProperty("serviceSpeeds"), new List<ServiceSpeed>(targets));
+        so.ApplyModifiedPropertiesWithoutUndo();
+
+        return new ZoneElement { Upgradeable = upgradeable, Icon = ReceptionIcon() };
+    }
+
+    /// <summary>La tercera: monedas extra en cada cobro, como las decoraciones.</summary>
+    private static ZoneElement BedroomCoinUpgrade(GameObject room, Unlockable roomLock)
+    {
+        GameObject go = NewChild(room.transform, "MejoraMonedas", BedroomCenter);
+
+        CoinBonusUpgradeable bonus = go.AddComponent<CoinBonusUpgradeable>();
+        SerializedObject so = new(bonus);
+        so.FindProperty("upgradeData").objectReferenceValue =
+            LoadOrCreate<DecorationUpgradeData>(
+                "Assets/ScriptableObjects/Upgrades/BedroomCoinsUpgrade.asset",
+                "Decoración",
+                "Se mejora este componente para poder conseguir dinero extra de los objetos.",
+                baseCost: 1100);
+
+        // Mientras la sala siga sin comprarse no aporta nada.
+        so.FindProperty("unlockable").objectReferenceValue = roomLock;
+        so.ApplyModifiedPropertiesWithoutUndo();
+
+        return new ZoneElement { Upgradeable = bonus, Icon = DecorationIcon() };
+    }
+
+    /// <summary>Icono provisional del botón de comprar una sala.</summary>
+    private static Sprite RoomIcon() =>
+        AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/GrayBox/Graybox2D/32x64.png");
+
+    /// <summary>Icono provisional de los trabajadores de sala.</summary>
+    private static Sprite IdleWorkerIcon() =>
+        AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/GrayBox/Graybox2D/16x16.png");
+
     /// <summary>Una entrada del panel de mejoras de una zona.</summary>
     private class ZoneElement
     {
         public Object Unlockable;
         public Object Upgradeable;
         public Sprite Icon;
+
+        /// <summary>
+        /// A dónde se acerca la cámara al tocar esta mejora. Si se deja null,
+        /// se usa la posición del propio componente.
+        /// </summary>
+        public Transform Focus;
     }
 
     private static void WireZone(
-        GameObject go, Transform focus, string zoneName, List<ZoneElement> elements)
+        GameObject go, Transform focus, string zoneName, List<ZoneElement> elements,
+        Object zoneUnlockable = null, Sprite lockedIcon = null)
     {
         UpgradeZone zone = go.AddComponent<UpgradeZone>();
 
         SerializedObject so = new(zone);
         so.FindProperty("zoneName").stringValue = zoneName;
         so.FindProperty("cameraFocusPoint").objectReferenceValue = focus;
+        so.FindProperty("zoneUnlockableTarget").objectReferenceValue = zoneUnlockable;
+        so.FindProperty("lockedIcon").objectReferenceValue = lockedIcon;
 
         SerializedProperty list = so.FindProperty("upgradeElements");
         list.arraySize = elements.Count;
@@ -1137,6 +1587,7 @@ public static class Taller1Builder
             element.FindPropertyRelative("unlockableTarget").objectReferenceValue = elements[i].Unlockable;
             element.FindPropertyRelative("upgradeableTarget").objectReferenceValue = elements[i].Upgradeable;
             element.FindPropertyRelative("icon").objectReferenceValue = elements[i].Icon;
+            element.FindPropertyRelative("focusPoint").objectReferenceValue = elements[i].Focus;
         }
 
         so.ApplyModifiedPropertiesWithoutUndo();
@@ -1151,9 +1602,17 @@ public static class Taller1Builder
     /// </summary>
     private static readonly (string Path, System.Type Type)[] ExpectedUpgradeAssets =
     {
-        ("Assets/ScriptableObjects/Upgrades/CartUpgrade.asset",      typeof(CartUpgradeData)),
-        ("Assets/ScriptableObjects/Upgrades/ReceptionUpgrade.asset", typeof(ReceptionUpgradeData)),
-        ("Assets/ScriptableObjects/Upgrades/SeatsUpgrade.asset",     typeof(DecorationUpgradeData)),
+        ("Assets/ScriptableObjects/Upgrades/CartUpgrade.asset",         typeof(CartUpgradeData)),
+        ("Assets/ScriptableObjects/Upgrades/ReceptionUpgrade.asset",    typeof(ReceptionUpgradeData)),
+        ("Assets/ScriptableObjects/Upgrades/SeatsUpgrade.asset",        typeof(DecorationUpgradeData)),
+        ("Assets/ScriptableObjects/Upgrades/ShelvesUpgrade.asset",      typeof(DecorationUpgradeData)),
+        ("Assets/ScriptableObjects/Upgrades/WorkshopPlantsUpgrade.asset", typeof(DecorationUpgradeData)),
+        ("Assets/ScriptableObjects/Upgrades/HallPlantsUpgrade.asset",   typeof(DecorationUpgradeData)),
+        ("Assets/ScriptableObjects/Upgrades/LampsUpgrade.asset",        typeof(DecorationUpgradeData)),
+        ("Assets/ScriptableObjects/Upgrades/StorageWorkerUpgrade.asset", typeof(IdleWorkerUpgradeData)),
+        ("Assets/ScriptableObjects/Upgrades/BedroomHandlingUpgrade.asset", typeof(CartHandlingUpgradeData)),
+        ("Assets/ScriptableObjects/Upgrades/BedroomServiceUpgrade.asset",  typeof(ReceptionUpgradeData)),
+        ("Assets/ScriptableObjects/Upgrades/BedroomCoinsUpgrade.asset",    typeof(DecorationUpgradeData)),
     };
 
     /// <summary>
@@ -1273,7 +1732,8 @@ public static class Taller1Builder
     /// jugador, no del builder.
     /// </summary>
     private static T LoadOrCreate<T>(
-        string path, string elementName, string description, double baseCost)
+        string path, string elementName, string description, double baseCost,
+        System.Action<T> configureNew = null)
         where T : UpgradeData
     {
         T existing = AssetDatabase.LoadAssetAtPath<T>(path);
@@ -1298,11 +1758,43 @@ public static class Taller1Builder
         data.growthFactor = 1.5f;
         data.maxLevel = 20;
 
+        // Los valores propios de cada tipo solo se ponen al crear el asset:
+        // si se pusieran siempre, cada reconstrucción pisaría lo que hubieras
+        // afinado a mano.
+        configureNew?.Invoke(data);
+
         AssetDatabase.CreateAsset(data, path);
         AssetDatabase.SaveAssets();
 
         Debug.Log($"[Taller1Builder] Creado {path}. Ajusta ahí coste y niveles.");
         return data;
+    }
+
+    /// <summary>
+    /// Saca la capa de lo sólido del raycast del toque.
+    ///
+    /// Sin esto, tocar una mesa o una planta devolvería su collider en vez del
+    /// de la sala, y el panel que se abriría sería el de la zona que tenga por
+    /// encima en la jerarquía — que no tiene por qué ser la que se ha tocado.
+    /// </summary>
+    private static void WireTapHandler()
+    {
+        TapHandler handler = Object.FindAnyObjectByType<TapHandler>(FindObjectsInactive.Include);
+        if (handler == null)
+        {
+            Debug.LogWarning("[Taller1Builder] No hay TapHandler en la escena: no puedo excluir " +
+                             "la capa de lo sólido del toque.");
+            return;
+        }
+
+        int solid = LayerSetup.SolidLayerIndex;
+        if (solid < 0) return;
+
+        SerializedObject so = new(handler);
+        SerializedProperty mask = so.FindProperty("tapLayers");
+
+        mask.intValue &= ~(1 << solid);
+        so.ApplyModifiedPropertiesWithoutUndo();
     }
 
     private static void WireCustomerManager(
@@ -1467,6 +1959,32 @@ public static class Taller1Builder
             Mathf.Approximately(lossy.x, 0f) ? target : target / lossy.x,
             Mathf.Approximately(lossy.y, 0f) ? target : target / lossy.y,
             1f);
+    }
+
+    /// <summary>
+    /// Le pone a algo un collider que nadie puede atravesar andando.
+    ///
+    /// Va en su propia capa para que el raycast del toque lo ignore: si
+    /// estuviera en Default, tocar una mesa abriría el panel de la sala que
+    /// tenga encima en vez del suyo.
+    ///
+    /// El tamaño sale del sprite, no de un (1,1) fijo: los muebles que vienen
+    /// de un prefab traen su propia escala y un collider unitario no les
+    /// cuadraría.
+    /// </summary>
+    private static void MakeSolid(GameObject go)
+    {
+        if (go.GetComponent<BoxCollider2D>() != null) return;
+
+        int layer = LayerSetup.SolidLayerIndex;
+        if (layer < 0) return;
+
+        go.layer = layer;
+
+        BoxCollider2D box = go.AddComponent<BoxCollider2D>();
+
+        if (go.TryGetComponent(out SpriteRenderer sr) && sr.sprite != null)
+            box.size = sr.sprite.bounds.size;
     }
 
     private static SpriteRenderer AddSquare(GameObject go, Vector2 size, Color color, int sortingOrder)
