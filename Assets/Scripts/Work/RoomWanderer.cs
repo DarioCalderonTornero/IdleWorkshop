@@ -72,7 +72,6 @@ public class RoomWanderer : MonoBehaviour
 
     private Vector3 _bodyHome;
     private Coroutine _loop;
-    private bool _settled;
 
     private void Awake()
     {
@@ -229,12 +228,10 @@ public class RoomWanderer : MonoBehaviour
     {
         bool active = CanWander();
 
-        // El primer repaso monta la escena y va sin animación: si no, todo lo
-        // que empieza bloqueado soltaría un puf al darle a Play.
-        if (poof != null) poof.SetVisible(active, animate: _settled);
+        // Mientras se monta la escena y se aplica la partida no se anima: si
+        // no, todo lo que empieza bloqueado soltaría un puf al arrancar.
+        if (poof != null) poof.SetVisible(active, animate: !BootPhase.IsBooting);
         else if (body != null && body.gameObject.activeSelf != active) body.gameObject.SetActive(active);
-
-        _settled = true;
 
         // Con la ronda mal montada se queda quieto en casa. Es mejor un jefe
         // que no pasea que uno que se va del mapa.

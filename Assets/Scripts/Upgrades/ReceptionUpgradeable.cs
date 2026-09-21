@@ -51,8 +51,10 @@ public class ReceptionUpgradeable : UpgradeableBase
             if (speed != null) speed.SetMultiplier(this, multiplier);
     }
 
-    private void OnDestroy()
+    protected override void OnDestroy()
     {
+        base.OnDestroy();
+
         if (serviceSpeeds == null) return;
 
         foreach (ServiceSpeed speed in serviceSpeeds)

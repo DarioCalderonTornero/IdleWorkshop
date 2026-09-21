@@ -9,6 +9,17 @@ public class WorkDeskUpgradeable : UpgradeableBase
 
     public override System.Type ExpectedDataType => typeof(WorkDeskUpgradeData);
 
+    /// <summary>
+    /// La mesa no se guarda por id, la guarda su taller por posición
+    /// (stationId + deskIndex).
+    ///
+    /// Es la única forma que funciona para ella: las mesas viven dentro de
+    /// WorkDesk.prefab y los talleres 2 en adelante se instancian desde
+    /// prefab en tiempo de ejecución, así que un id autorizado sería el mismo
+    /// en las mesas de todos los talleres y se pisarían el nivel entre ellas.
+    /// </summary>
+    public override bool SavesItself => false;
+
     private WorkDeskUpgradeData Data => RequireData<WorkDeskUpgradeData>();
 
     protected override void Awake()

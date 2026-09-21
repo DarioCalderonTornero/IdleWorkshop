@@ -1,8 +1,14 @@
 using UnityEngine;
 
-public abstract class UpgradeableBase : MonoBehaviour, IUpgradeable
+public abstract class UpgradeableBase : MonoBehaviour, IUpgradeable, ISaveableUpgrade
 {
     [SerializeField] protected UpgradeData upgradeData;
+
+    [Header("Guardado")]
+    [Tooltip("Identidad de este elemento en la partida guardada. Se asigna sola: " +
+             "no la escribas a mano ni la copies de otro objeto. Si dos elementos " +
+             "acaban con el mismo id, 'Taller > Revisar guardado' lo detecta y lo arregla")]
+    [SerializeField] private string saveId;
 
     private int currentLevel = 1;
     private SpriteRenderer _spriteRenderer;
@@ -10,6 +16,19 @@ public abstract class UpgradeableBase : MonoBehaviour, IUpgradeable
 
     public UpgradeData UpgradeData => upgradeData;
     public int CurrentLevel => currentLevel;
+
+    // ── ISaveableUpgrade ─────────────────────────────────────────────
+    public string SaveId => saveId;
+
+    /// <summary>
+    /// Si este mejorable se guarda por id en el registro global.
+    ///
+    /// Las mesas dicen que no (ver <see cref="WorkDeskUpgradeable"/>): las
+    /// guarda su taller por posición, porque los talleres 2 en adelante se
+    /// instancian desde un prefab y un id puesto en el prefab se repetiría
+    /// idéntico en cada copia.
+    /// </summary>
+    public virtual bool SavesItself => true;
 
     /// <summary>
     /// El subtipo de UpgradeData que este mejorable necesita. Devolver
@@ -31,7 +50,28 @@ public abstract class UpgradeableBase : MonoBehaviour, IUpgradeable
     protected virtual void Awake()
     {
         _spriteRenderer = GetComponent<SpriteRenderer>();
+
+        SaveRegistry.Register(this);
     }
+
+    /// <summary>
+    /// Virtual porque Unity solo llama al OnDestroy más derivado: si una
+    /// subclase declarara el suyo sin más, este no correría y el elemento se
+    /// quedaría apuntado en el registro después de morir.
+    /// </summary>
+    protected virtual void OnDestroy()
+    {
+        SaveRegistry.Unregister(this);
+    }
+
+#if UNITY_EDITOR
+    protected virtual void OnValidate()
+    {
+        // Las mesas no llevan id: se guardan por su taller, y darles uno solo
+        // confundiría a quien lo viera en el Inspector.
+        if (SavesItself) SaveIdentity.EnsureAssigned(this, ref saveId);
+    }
+#endif
 
     /// <summary>
     /// Devuelve el UpgradeData ya tipado, o null si falta o es de otro tipo.

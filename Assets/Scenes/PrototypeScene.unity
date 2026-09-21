@@ -295,6 +295,7 @@ MonoBehaviour:
   unlockCost: 5000
   unlockedByDefault: 0
   revealOnUnlock: []
+  saveId: 3dda9fd811ea
 --- !u!114 &50567875
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1114,6 +1115,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CoinBonusUpgradeable
   upgradeData: {fileID: 11400000, guid: 94837a180f40073468ad86550b5dce3c, type: 2}
+  saveId: 8323173b7db8
   unlockable: {fileID: 118784271}
 --- !u!114 &118784270
 MonoBehaviour:
@@ -1154,6 +1156,7 @@ MonoBehaviour:
   unlockCost: 1500
   unlockedByDefault: 0
   revealOnUnlock: []
+  saveId: 4f1032c10624
 --- !u!4 &118784272
 Transform:
   m_ObjectHideFlags: 0
@@ -1281,6 +1284,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CoinBonusUpgradeable
   upgradeData: {fileID: 11400000, guid: b926acf48c08b7a489fb715ec34119a2, type: 2}
+  saveId: d08006f3eefa
   unlockable: {fileID: 141599427}
 --- !u!114 &141599427
 MonoBehaviour:
@@ -1297,6 +1301,7 @@ MonoBehaviour:
   unlockCost: 1200
   unlockedByDefault: 0
   revealOnUnlock: []
+  saveId: 220feb97beb2
 --- !u!1 &143129579
 GameObject:
   m_ObjectHideFlags: 0
@@ -4820,6 +4825,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::IdleWorkerUpgradeable
   upgradeData: {fileID: 11400000, guid: 7fbbbef71f8870e46962e491dc9be4dd, type: 2}
+  saveId: 844ebd57e506
   worker: {fileID: 527171502}
 --- !u!114 &527171502
 MonoBehaviour:
@@ -4857,6 +4863,7 @@ MonoBehaviour:
   unlockCost: 8000
   unlockedByDefault: 0
   revealOnUnlock: []
+  saveId: bdd91d8bfb02
 --- !u!1 &527268354
 GameObject:
   m_ObjectHideFlags: 0
@@ -6058,6 +6065,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CartUpgradeable
   upgradeData: {fileID: 11400000, guid: 2002b4a6ae8fd2a4ea56daaf1c726965, type: 2}
+  saveId: ddf20af776fa
   cartWorker: {fileID: 745673628}
 --- !u!1 &753062472
 GameObject:
@@ -7513,6 +7521,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CoinBonusUpgradeable
   upgradeData: {fileID: 11400000, guid: 4b6cbaaa71442c94da242bcf5439dced, type: 2}
+  saveId: 43012ea45466
   unlockable: {fileID: 896527229}
 --- !u!114 &896527229
 MonoBehaviour:
@@ -7529,6 +7538,7 @@ MonoBehaviour:
   unlockCost: 750
   unlockedByDefault: 0
   revealOnUnlock: []
+  saveId: 30530b2b91c0
 --- !u!1 &900899664
 GameObject:
   m_ObjectHideFlags: 0
@@ -10562,6 +10572,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ReceptionUpgradeable
   upgradeData: {fileID: 11400000, guid: 3b63d7cc035180844bc0cd5808f187fc, type: 2}
+  saveId: 44a7ca2329a4
   serviceSpeeds:
   - {fileID: 1605068179}
   - {fileID: 1669781109}
@@ -11932,6 +11943,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CoinBonusUpgradeable
   upgradeData: {fileID: 11400000, guid: 4d30e6e163389464a9ad084b233ca8bd, type: 2}
+  saveId: b34929f2a959
   unlockable: {fileID: 1249869641}
 --- !u!114 &1249869639
 MonoBehaviour:
@@ -12014,6 +12026,7 @@ MonoBehaviour:
   unlockCost: 500
   unlockedByDefault: 0
   revealOnUnlock: []
+  saveId: ee38f54928d1
 --- !u!4 &1249869642
 Transform:
   m_ObjectHideFlags: 0
@@ -14349,6 +14362,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CartUpgradeable
   upgradeData: {fileID: 11400000, guid: 2002b4a6ae8fd2a4ea56daaf1c726965, type: 2}
+  saveId: e600709de059
   cartWorker: {fileID: 1419940093}
 --- !u!1 &1425877355
 GameObject:
@@ -14398,6 +14412,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::IdleWorkerUpgradeable
   upgradeData: {fileID: 11400000, guid: 7fbbbef71f8870e46962e491dc9be4dd, type: 2}
+  saveId: be99cb18d7d8
   worker: {fileID: 1425877358}
 --- !u!114 &1425877358
 MonoBehaviour:
@@ -16494,6 +16509,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ReceptionUpgradeable
   upgradeData: {fileID: 11400000, guid: 4d762b425c69e9a40abd59037d42c4f9, type: 2}
+  saveId: 38c8a84084a8
   serviceSpeeds:
   - {fileID: 1605068179}
 --- !u!114 &1605068182
@@ -17512,6 +17528,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ReceptionUpgradeable
   upgradeData: {fileID: 11400000, guid: 4d762b425c69e9a40abd59037d42c4f9, type: 2}
+  saveId: 5e64e0ba6997
   serviceSpeeds:
   - {fileID: 1669781109}
 --- !u!114 &1669781112
@@ -17740,6 +17757,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CartHandlingUpgradeable
   upgradeData: {fileID: 11400000, guid: ddc6b6217269aa04ba206a5a3846038b, type: 2}
+  saveId: 8f896b772035
   carts:
   - {fileID: 1419940093}
   - {fileID: 745673628}
@@ -17775,6 +17793,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CoinBonusUpgradeable
   upgradeData: {fileID: 11400000, guid: d1202b7897f024c45a09a70ac70fc5af, type: 2}
+  saveId: 9b3a94d475c1
   unlockable: {fileID: 1721571161}
 --- !u!114 &1721571160
 MonoBehaviour:
@@ -17815,6 +17834,7 @@ MonoBehaviour:
   unlockCost: 900
   unlockedByDefault: 0
   revealOnUnlock: []
+  saveId: 29ada81c3829
 --- !u!4 &1721571162
 Transform:
   m_ObjectHideFlags: 0
@@ -18024,6 +18044,7 @@ MonoBehaviour:
   unlockCost: 12000
   unlockedByDefault: 0
   revealOnUnlock: []
+  saveId: 8590baca0283
 --- !u!114 &1773224190
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -20112,6 +20133,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CoinBonusUpgradeable
   upgradeData: {fileID: 11400000, guid: 21d2d2f21a15a6a44bb977c205350cdb, type: 2}
+  saveId: 0117027a610c
   unlockable: {fileID: 1773224189}
 --- !u!1 &1911792007
 GameObject:

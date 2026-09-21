@@ -52,8 +52,10 @@ public class CartHandlingUpgradeable : UpgradeableBase
             if (cart != null) cart.SetHandlingMultiplier(this, multiplier);
     }
 
-    private void OnDestroy()
+    protected override void OnDestroy()
     {
+        base.OnDestroy();
+
         if (carts == null) return;
 
         foreach (CartWorker cart in carts)

@@ -9,6 +9,20 @@ public class WorkerUpgradeable : UpgradeableBase
 
     public override System.Type ExpectedDataType => typeof(WorkerUpgradeData);
 
+    /// <summary>
+    /// El trabajador no se guarda por id, igual que la mesa a la que pertenece.
+    ///
+    /// Vive dentro de Worker.prefab, anidado en WorkDesk.prefab, del que hay
+    /// una copia por mesa. Un id puesto en el prefab sería el mismo en las tres
+    /// copias, así que las tres se pisarían el nivel entre ellas: es justo lo
+    /// que pasaba, y el registro lo cazó al arrancar.
+    ///
+    /// Si algún día el nivel del trabajador tiene que persistir, su sitio es
+    /// DeskSaveData —junto al nivel de su mesa—, que se guarda por stationId y
+    /// deskIndex y por eso sí funciona con contenido de prefab.
+    /// </summary>
+    public override bool SavesItself => false;
+
     private WorkerUpgradeData Data => RequireData<WorkerUpgradeData>();
 
     protected override void Awake()

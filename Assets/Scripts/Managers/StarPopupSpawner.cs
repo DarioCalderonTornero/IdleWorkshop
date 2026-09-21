@@ -1,5 +1,6 @@
 using UnityEngine;
 
+[DefaultExecutionOrder(BootOrder.Manager)]
 public class StarPopupSpawner : MonoBehaviour
 {
     public static StarPopupSpawner Instance { get; private set; }

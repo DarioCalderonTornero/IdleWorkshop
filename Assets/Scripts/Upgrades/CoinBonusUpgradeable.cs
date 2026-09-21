@@ -47,8 +47,10 @@ public class CoinBonusUpgradeable : UpgradeableBase
 
     private void ApplyBonus() => CoinBonusRegistry.Set(this, CurrentBonus);
 
-    private void OnDestroy()
+    protected override void OnDestroy()
     {
+        base.OnDestroy();
+
         if (unlockable != null)
             unlockable.OnUnlocked -= HandleUnlocked;
 

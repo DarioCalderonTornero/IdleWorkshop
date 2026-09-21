@@ -44,7 +44,6 @@ public class IdleWorker : MonoBehaviour, IUpgradePreview
 
     private Vector3 _bodyHome;
     private Coroutine _loop;
-    private bool _settled;
 
     /// <summary>Si ahora mismo está trabajando.</summary>
     public bool IsWorking => _loop != null;
@@ -102,12 +101,10 @@ public class IdleWorker : MonoBehaviour, IUpgradePreview
     {
         bool active = CanWork();
 
-        // El primer repaso monta la escena y va sin animación: si no, todos
-        // los trabajadores bloqueados soltarían un puf al darle a Play.
-        if (poof != null) poof.SetVisible(active, animate: _settled);
+        // Mientras se monta la escena y se aplica la partida no se anima: si
+        // no, todos los trabajadores bloqueados soltarían un puf al arrancar.
+        if (poof != null) poof.SetVisible(active, animate: !BootPhase.IsBooting);
         else if (body != null && body.gameObject.activeSelf != active) body.gameObject.SetActive(active);
-
-        _settled = true;
 
         if (active && _loop == null)
         {

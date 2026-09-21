@@ -2,6 +2,7 @@ using UnityEngine;
 using System.Collections.Generic;
 using System;
 
+[DefaultExecutionOrder(BootOrder.Manager)]
 public class WorkStationUnlocker : MonoBehaviour
 {
     public static WorkStationUnlocker Instance { get; private set; }

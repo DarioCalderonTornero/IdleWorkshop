@@ -7,6 +7,7 @@ using UnityEngine;
 /// inconsistente), decide por sí mismo si un gesto fue un toque o un arrastre
 /// comparando la posición al iniciar y al soltar el press.
 /// </summary>
+[DefaultExecutionOrder(BootOrder.Manager)]
 public class TapHandler : MonoBehaviour
 {
     public static TapHandler Instance { get; private set; }

@@ -42,10 +42,6 @@ public class DecorationReveal : MonoBehaviour, IUpgradePreview
     /// <summary>Ha cambiado el número de piezas visibles.</summary>
     public event Action OnVisibleCountChanged;
 
-    // El primer repaso monta la escena y va sin animación: si no, todo lo que
-    // empieza escondido soltaría un puf en el arranque.
-    private bool _settled;
-
     private void Awake()
     {
         if (unlockable != null) unlockable.OnUnlocked += HandleUnlocked;
@@ -73,7 +69,6 @@ public class DecorationReveal : MonoBehaviour, IUpgradePreview
         VisibleCount = Calculate();
 
         ApplyVisibility();
-        _settled = true;
 
         if (VisibleCount != previous) OnVisibleCountChanged?.Invoke();
     }
@@ -139,7 +134,9 @@ public class DecorationReveal : MonoBehaviour, IUpgradePreview
             bool visible = i < VisibleCount;
             Poof poof = piecePoofs != null && i < piecePoofs.Length ? piecePoofs[i] : null;
 
-            if (poof != null) poof.SetVisible(visible, animate: _settled);
+            // Mientras se monta la escena y se aplica la partida no se
+            // anima: si no, todo lo que empieza escondido soltaría un puf.
+            if (poof != null) poof.SetVisible(visible, animate: !BootPhase.IsBooting);
             else if (pieces[i].activeSelf != visible) pieces[i].SetActive(visible);
         }
     }

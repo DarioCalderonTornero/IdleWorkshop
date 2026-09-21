@@ -11,6 +11,7 @@ using UnityEngine;
 ///   EconomyManager.Instance.SpendCoins(50);
 ///   EconomyManager.Instance.CanAfford(200);
 /// </summary>
+[DefaultExecutionOrder(BootOrder.Manager)]
 public class EconomyManager : MonoBehaviour
 {
     public static EconomyManager Instance { get; private set; }

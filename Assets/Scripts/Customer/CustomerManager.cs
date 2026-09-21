@@ -14,6 +14,7 @@ using UnityEngine;
 /// el que se marcha se destruye y más tarde vuelve otro distinto con el mismo
 /// ticket. Así cada objeto acaba en manos de quien lo trajo.
 /// </summary>
+[DefaultExecutionOrder(BootOrder.Manager)]
 public class CustomerManager : MonoBehaviour
 {
     public static CustomerManager Instance { get; private set; }

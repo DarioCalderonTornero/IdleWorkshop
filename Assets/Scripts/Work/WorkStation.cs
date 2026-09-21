@@ -315,6 +315,18 @@ public class WorkStation : MonoBehaviour
 
         stationId = id;
         isInitialized = true;
+
+        // Sin registro el taller no se guarda ni se carga, y el jugador
+        // perdería la partida sin que nada lo avisara. Es un fallo de escena,
+        // así que grita en vez de caerse con un NullReference a secas.
+        if (WorkStationRegistry.Instance == null)
+        {
+            Debug.LogError(
+                $"[WorkStation] {name}: no hay WorkStationRegistry en la escena. " +
+                "Este taller no se guardará ni se cargará.", this);
+            return;
+        }
+
         WorkStationRegistry.Instance.Register(this);
     }
 }

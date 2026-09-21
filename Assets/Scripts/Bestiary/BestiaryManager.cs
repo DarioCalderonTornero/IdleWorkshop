@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
 
+[DefaultExecutionOrder(BootOrder.Manager)]
 public class BestiaryManager : MonoBehaviour
 {
     public static BestiaryManager Instance { get; private set; }

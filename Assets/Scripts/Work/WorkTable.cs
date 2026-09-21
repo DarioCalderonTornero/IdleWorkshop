@@ -79,7 +79,6 @@ public class WorkTable : MonoBehaviour, IItemContainer
     // ── Bolsa de terminados ───────────────────────────────────────────
 
     private bool _isLastUnlocked = true;
-    private bool _outStackSettled;
 
     /// <summary>
     /// Dice a la mesa si sigue siendo la última desbloqueada. Solo la última
@@ -102,7 +101,7 @@ public class WorkTable : MonoBehaviour, IItemContainer
     /// nueva puede quedar algún objeto terminado esperando en la anterior, y
     /// esconderlo dejaría al carrito recogiendo de una bolsa invisible.
     ///
-    /// El primer repaso es el de montar la escena y va sin animación: si no,
+    /// Mientras se monta la escena y se aplica la partida no se anima: si no,
     /// todas las bolsas que empiezan escondidas soltarían un puf al arrancar.
     /// </summary>
     private void RefreshOutStackVisibility()
@@ -113,14 +112,12 @@ public class WorkTable : MonoBehaviour, IItemContainer
 
         if (outStackPoof != null)
         {
-            outStackPoof.SetVisible(shouldShow, animate: _outStackSettled);
+            outStackPoof.SetVisible(shouldShow, animate: !BootPhase.IsBooting);
         }
         else if (outStack.gameObject.activeSelf != shouldShow)
         {
             outStack.gameObject.SetActive(shouldShow);
         }
-
-        _outStackSettled = true;
     }
 
     public Vector3 PlayerSlotPos => playerSlot.position;

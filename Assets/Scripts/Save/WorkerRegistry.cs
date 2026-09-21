@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Collections.Generic;
 
+[DefaultExecutionOrder(BootOrder.Registry)]
 public class WorkerRegistry : MonoBehaviour
 {
     public static WorkerRegistry Instance { get; private set; }
