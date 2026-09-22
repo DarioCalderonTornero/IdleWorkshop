@@ -41,4 +41,11 @@ public static class BootOrder
     /// montada entera y no queda ningún Start() por correr que pueda pisarla.
     /// </summary>
     public const int Load = 100;
+
+    /// <summary>
+    /// Lo que necesita la partida ya aplicada: la paga por el tiempo offline,
+    /// el aviso de bienvenida. Va después de Load porque no puede calcular
+    /// nada hasta que el guardado se ha leído.
+    /// </summary>
+    public const int PostLoad = 110;
 }

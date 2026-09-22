@@ -39,6 +39,15 @@ public class SaveManager : MonoBehaviour
     /// <summary>Si ahora mismo se puede escribir en disco.</summary>
     public bool CanSave => _blockedReason == null;
 
+    /// <summary>
+    /// La partida que se aplicó al arrancar, o null si era nueva.
+    ///
+    /// La lee el <see cref="GameBootstrap"/> para calcular el tiempo offline:
+    /// necesita la marca del último guardado y la tasa de producción, y las
+    /// necesita cuando ya está todo aplicado.
+    /// </summary>
+    public SaveData LoadedData { get; private set; }
+
     private void Awake()
     {
         if (Instance != null)
@@ -112,6 +121,8 @@ public class SaveManager : MonoBehaviour
 
             // Para el sistema de tiempo offline, que aún está por hacer.
             lastTimeSaved = DateTime.UtcNow.ToString("o"),
+
+            coinsPerSecond = EconomyManager.Instance.CoinsPerSecond,
 
             workStations = WorkStationRegistry.Instance.GetAllSaveData(),
             bestiaryItems = BestiaryManager.Instance.GetSaveData()
@@ -214,7 +225,10 @@ public class SaveManager : MonoBehaviour
 
     private void ApplySaveData(SaveData data)
     {
+        LoadedData = data;
+
         EconomyManager.Instance.LoadCoins(data.coins);
+        EconomyManager.Instance.LoadRate(data.coinsPerSecond);
         WorkStationRegistry.Instance.LoadAllSaveData(data.workStations);
         BestiaryManager.Instance.LoadSaveData(data.bestiaryItems, _itemDatabase);
         SaveRegistry.Restore(data);

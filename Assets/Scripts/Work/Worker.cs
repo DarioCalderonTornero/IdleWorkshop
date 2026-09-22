@@ -157,7 +157,7 @@ public class Worker : WorkerBase
             StarPopupSpawner.Instance?.Spawn(_myTable.ItemSlotPos);
 
         int reward = _myTable.GetReward(itemDef);
-        EconomyManager.Instance?.AddCoins(reward);
+        EconomyManager.Instance?.AddCoins(reward, CoinSource.Production);
 
         onComplete?.Invoke(gotStar);
     }

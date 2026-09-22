@@ -19,7 +19,9 @@ public class EconomyTester : MonoBehaviour
     {
         if (Keyboard.current.aKey.wasPressedThisFrame)
         {
-            EconomyManager.Instance.AddCoins(1143);
+            // OneOff: el dinero de pruebas no es producción. Si contara, teclear
+            // monedas dispararía la tasa y el tiempo offline pagaría sobre ella.
+            EconomyManager.Instance.AddCoins(1143, CoinSource.OneOff);
         }
 
         if (Keyboard.current.sKey.wasPressedThisFrame)
@@ -61,7 +63,7 @@ public class EconomyTester : MonoBehaviour
 
         if (double.TryParse(rawText, NumberStyles.Number, CultureInfo.InvariantCulture, out double amount))
         {
-            EconomyManager.Instance.AddCoins(amount);
+            EconomyManager.Instance.AddCoins(amount, CoinSource.OneOff);
             Debug.Log($"A�adidas {amount} al juego");
         }
 

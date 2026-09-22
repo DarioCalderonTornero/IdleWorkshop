@@ -54,6 +54,19 @@ public abstract class SlidingPanelUI : MonoBehaviour
         }));
     }
 
+    /// <summary>
+    /// Cómo progresa la animación de 0 a 1.
+    ///
+    /// Virtual para que un panel concreto pueda tener su propio caracter sin
+    /// cambiarselo al resto: el aviso de bienvenida entra con rebote, y los
+    /// paneles de mejora siguen entrando igual que siempre.
+    ///
+    /// Puede devolver valores fuera de [0,1] — de eso viven los rebotes — y por
+    /// eso el desplazamiento usa LerpUnclamped: con el Lerp normal el pasarse
+    /// de largo se recortaria y no se veria nada.
+    /// </summary>
+    protected virtual float Ease(float t) => Mathf.SmoothStep(0f, 1f, t);
+
     private IEnumerator AnimateTo(float targetY, System.Action onComplete)
     {
         float startY = panelRect.anchoredPosition.y;
@@ -62,8 +75,8 @@ public abstract class SlidingPanelUI : MonoBehaviour
         while (elapsed < animDuration)
         {
             elapsed += Time.deltaTime;
-            float t = Mathf.SmoothStep(0f, 1f, elapsed / animDuration);
-            panelRect.anchoredPosition = new Vector2(panelRect.anchoredPosition.x, Mathf.Lerp(startY, targetY, t));
+            float t = Ease(Mathf.Clamp01(elapsed / animDuration));
+            panelRect.anchoredPosition = new Vector2(panelRect.anchoredPosition.x, Mathf.LerpUnclamped(startY, targetY, t));
             yield return null;
         }
 

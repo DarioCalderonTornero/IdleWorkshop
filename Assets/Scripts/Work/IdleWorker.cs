@@ -155,7 +155,7 @@ public class IdleWorker : MonoBehaviour, IUpgradePreview
             }
 
             progressUI?.SetFill(1f);
-            EconomyManager.Instance?.AddCoins(_coinsPerCycle);
+            EconomyManager.Instance?.AddCoins(_coinsPerCycle, CoinSource.Production);
 
             // No se esconde el círculo entre tandas: el trabajo no para, y
             // verlo apagarse y encenderse cada vez daría sensación de parón.

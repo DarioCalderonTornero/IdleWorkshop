@@ -11,7 +11,7 @@ using UnityEngine;
 public static class SaveFormat
 {
     /// <summary>La versión que escribe esta build.</summary>
-    public const int Current = 2;
+    public const int Current = 3;
 
     /// <summary>
     /// Las partidas anteriores a que existiera el campo `version`.
@@ -53,6 +53,11 @@ public static class SaveFormat
         // llega con las listas vacías y cada elemento se queda como de fábrica.
         // Es exactamente lo que pasaba antes, cuando no se guardaban.
         if (data.version < 2) data.version = 2;
+
+        // v2 -> v3: aparece `coinsPerSecond`, la tasa de producción que paga el
+        // tiempo offline. Nada que convertir: una partida de la v2 la trae a 0,
+        // así que no cobra offline hasta que se juegue un rato y se mida.
+        if (data.version < 3) data.version = 3;
 
         if (data.version != Current)
         {

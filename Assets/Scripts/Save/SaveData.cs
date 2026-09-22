@@ -16,6 +16,16 @@ public class SaveData
 
     public double coins;
     public string lastTimeSaved;
+
+    /// <summary>
+    /// Monedas por segundo que producía el montaje del jugador al guardar.
+    ///
+    /// Es lo que paga el tiempo offline: se mide mientras juega en vez de
+    /// simular el taller, así que una fuente de ingresos nueva entra sola sin
+    /// tocar nada. Una partida anterior a este campo lo lee como 0 y
+    /// sencillamente no cobra offline la primera vez.
+    /// </summary>
+    public double coinsPerSecond;
     public List<WorkStationSaveData> workStations = new();
     public List<BestiaryItemSaveData> bestiaryItems = new();
 

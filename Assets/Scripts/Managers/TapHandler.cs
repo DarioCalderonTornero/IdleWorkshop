@@ -80,6 +80,11 @@ public class TapHandler : MonoBehaviour
     private void ProcessTap(Vector2 screenPosition)
     {
         if (BestiaryUI.IsOpen) return;
+
+        // Mientras se enseña lo producido estando fuera, el juego de debajo no
+        // se toca: si no, el mismo toque que cierra el aviso daría boost a los
+        // trabajadores y podría abrir una zona por detrás del velo.
+        if (OfflineEarningsPopupUI.Instance != null && OfflineEarningsPopupUI.Instance.IsVisible) return;
         if (RoomUpgradePanelUI.Instance != null && RoomUpgradePanelUI.Instance.IsVisible) return;
         if (RoomUpgradePanelUI.JustClosedThisFrame) return;
 
