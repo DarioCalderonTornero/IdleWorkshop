@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -14,8 +15,20 @@ using UnityEngine;
 /// disponibles (la sala de espera, para sentar clientes) pregunta por
 /// <see cref="VisibleCount"/> en vez de volver a calcularlo por su cuenta.
 /// </summary>
-public class DecorationReveal : MonoBehaviour, IUpgradePreview
+public class DecorationReveal : MonoBehaviour, IUpgradePreview, IHiddenUntilBought
 {
+    /// <summary>Todas sus piezas: en un taller recién abierto no sale ninguna.</summary>
+    public IEnumerable<Transform> HiddenParts
+    {
+        get
+        {
+            if (pieces == null) yield break;
+
+            foreach (GameObject piece in pieces)
+                if (piece != null) yield return piece.transform;
+        }
+    }
+
     [Tooltip("Las piezas, en el orden en que van apareciendo")]
     [SerializeField] private GameObject[] pieces;
 

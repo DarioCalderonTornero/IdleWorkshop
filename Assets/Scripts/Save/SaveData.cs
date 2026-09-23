@@ -26,6 +26,19 @@ public class SaveData
     /// sencillamente no cobra offline la primera vez.
     /// </summary>
     public double coinsPerSecond;
+
+    /// <summary>
+    /// Cuántos talleres ha abierto el jugador, contando el primero.
+    ///
+    /// Arranca en 1 y no en 0: JsonUtility deja con este valor los campos que
+    /// no vienen en el JSON, así que una partida anterior a este campo se lee
+    /// como "un solo taller", que es exactamente lo que tenía.
+    ///
+    /// Es un número y no una lista de estados porque el orden es fijo: los
+    /// abiertos son los primeros, y todos menos el último están retirados.
+    /// </summary>
+    public int unlockedWorkshops = 1;
+
     public List<WorkStationSaveData> workStations = new();
     public List<BestiaryItemSaveData> bestiaryItems = new();
 

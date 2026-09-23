@@ -9,6 +9,13 @@ public interface IUnlockable
 {
     bool IsUnlocked { get; }
 
+    /// <summary>
+    /// Si viene ya comprado de fábrica, como la primera mesa. Lo usa el
+    /// progreso del taller para no contar como conseguido algo que el jugador
+    /// nunca tuvo que pagar.
+    /// </summary>
+    bool StartsUnlocked { get; }
+
     /// <summary>Lo que cuesta desbloquearlo.</summary>
     double UnlockCost { get; }
 

@@ -75,7 +75,7 @@ public class Poof : MonoBehaviour
             Target.localScale = _baseScale;
         }
 
-        if (!animate || !gameObject.activeInHierarchy)
+        if (!animate)
         {
             Target.localScale = _baseScale;
             gameObject.SetActive(visible);
@@ -84,11 +84,31 @@ public class Poof : MonoBehaviour
 
         if (visible)
         {
+            // Primero se enciende y DESPUÉS se mira si se puede animar. Antes
+            // se miraba antes de encenderlo, y como lo que va a aparecer está
+            // apagado por definición, la comprobación fallaba siempre: ninguna
+            // aparición llegaba a animarse, todo salía de golpe.
             gameObject.SetActive(true);
+
+            // Si el padre está apagado no se puede lanzar la corrutina: sale
+            // tal cual y se verá cuando se encienda el padre.
+            if (!gameObject.activeInHierarchy)
+            {
+                Target.localScale = _baseScale;
+                return;
+            }
+
             _running = StartCoroutine(AppearRoutine());
         }
         else
         {
+            if (!gameObject.activeInHierarchy)
+            {
+                Target.localScale = _baseScale;
+                gameObject.SetActive(false);
+                return;
+            }
+
             _running = StartCoroutine(DisappearRoutine());
         }
     }

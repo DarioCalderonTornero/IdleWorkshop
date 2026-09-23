@@ -10,10 +10,38 @@ using UnityEngine;
 /// El origen y el destino se meten en el grafo en cada consulta, así que no hay
 /// rutas precalculadas que se rompan al mover algo — que era justo el problema
 /// de los waypoints fijos.
+///
+/// Hay una por taller. Antes era única, y con dos talleres los carritos del
+/// segundo habrían pedido ruta a la red del primero: sus nodos están a catorce
+/// unidades, así que el carrito se habría ido a cruzar el otro taller para
+/// llegar a la mesa de al lado. Cada carrito pide la suya con <see cref="For"/>.
 /// </summary>
 public class WorkshopNavGraph : MonoBehaviour
 {
+    /// <summary>
+    /// La primera red que despertó. Solo queda para lo que no está dentro de
+    /// ningún taller; lo que sí lo está debe usar <see cref="For"/>.
+    /// </summary>
     public static WorkshopNavGraph Instance { get; private set; }
+
+    /// <summary>
+    /// La red del taller en el que está <paramref name="component"/>.
+    ///
+    /// Si no está dentro de ningún taller —una escena de pruebas— devuelve la
+    /// global, que es lo que hacía todo antes.
+    /// </summary>
+    public static WorkshopNavGraph For(Component component)
+    {
+        Workshop workshop = Workshop.Of(component);
+
+        if (workshop != null)
+        {
+            WorkshopNavGraph own = workshop.GetComponentInChildren<WorkshopNavGraph>(includeInactive: true);
+            if (own != null) return own;
+        }
+
+        return Instance;
+    }
 
     [Tooltip("Puntos de paso: esquinas y cruces del espacio libre. No hace falta " +
              "que estén conectados a mano, se calcula qué ve cada uno")]
@@ -30,22 +58,38 @@ public class WorkshopNavGraph : MonoBehaviour
 
     private void Awake()
     {
-        if (Instance != null && Instance != this)
-        {
-            Debug.LogWarning($"[WorkshopNavGraph] Ya había una red de navegación; se ignora la de {name}.", this);
-            return;
-        }
+        // Ya no es un error que haya varias: hay una por taller.
+        if (Instance == null) Instance = this;
 
-        Instance = this;
         CollectObstacles();
     }
 
+    private void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
+    }
+
+    /// <summary>
+    /// Los muebles que rodear, solo los de su propio taller. Los del otro están
+    /// lejos y no estorban a ninguna ruta, pero meterlos haría cada consulta
+    /// más lenta para nada, y un día que los talleres estuvieran más juntos
+    /// empezarían a desviar carritos por muebles que no están en su taller.
+    /// </summary>
     private void CollectObstacles()
     {
         if (!autoCollectObstacles) return;
 
         obstacles.Clear();
-        obstacles.AddRange(FindObjectsByType<NavObstacle>(FindObjectsInactive.Exclude));
+        obstacles.AddRange(OwnObstacles());
+    }
+
+    private IEnumerable<NavObstacle> OwnObstacles()
+    {
+        Workshop workshop = Workshop.Of(this);
+
+        return workshop != null
+            ? workshop.GetComponentsInChildren<NavObstacle>(includeInactive: false)
+            : FindObjectsByType<NavObstacle>(FindObjectsInactive.Exclude);
     }
 
     // ── Consulta ─────────────────────────────────────────────────────
@@ -166,7 +210,7 @@ public class WorkshopNavGraph : MonoBehaviour
         // En editor no ha pasado por Awake: se recogen al vuelo para poder
         // ver qué conexiones existen sin darle a play.
         if (obstacles.Count == 0)
-            obstacles.AddRange(FindObjectsByType<NavObstacle>(FindObjectsInactive.Exclude));
+            obstacles.AddRange(OwnObstacles());
 
         for (int i = 0; i < nodes.Length; i++)
         {

@@ -1,27 +1,83 @@
 using System.Collections.Generic;
+using TMPro;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 /// <summary>
-/// Construye el layout completo del Taller 1 en la escena abierta, calcado de
-/// la hoja de diseño: las dos colas del hall, los dos mostradores de recepción,
-/// los dos transportistas con carrito y las tres mesas de limpieza con su
-/// worker, y deja todas las referencias cableadas.
+/// Construye los talleres en la escena abierta, calcados de la hoja de diseño:
+/// las dos colas del hall, los dos mostradores de recepción, los dos
+/// transportistas con carrito, las tres mesas de limpieza con su worker, las
+/// decoraciones, el almacén y la habitación; y deja todas las referencias
+/// cableadas.
 ///
-/// Es idempotente: vuelve a ejecutarlo y reconstruye desde cero el objeto
-/// "Taller1". No toca el mapa (los suelos) ni los managers, salvo para
-/// re-cablear CustomerManager y WorkStationUnlocker al taller nuevo.
+/// Construye varios talleres iguales, uno al lado del otro. El primero es el de
+/// partida; los demás quedan apagados hasta que el jugador los compra. Por
+/// ahora el segundo es una copia del primero: cuando exista su diseño propio,
+/// se construirá con el suyo.
 ///
-/// Las coordenadas están en unidades de mundo y salen de medir la imagen de
-/// diseño sobre los suelos ya colocados:
+/// Es idempotente: vuelve a ejecutarlo y reconstruye los talleres desde cero,
+/// conservando dos cosas que no se pueden perder al reconstruir:
+///   - Dónde está cada taller. El primero está movido a mano para cuadrar con
+///     los suelos, y antes cada reconstrucción lo devolvía al origen.
+///   - Los ids de guardado. Cada elemento nuevo recibía un id nuevo, y la
+///     partida del jugador se quedaba con los viejos: reconstruir borraba en
+///     silencio todo lo comprado en salas, decoraciones y carritos.
+///
+/// Las coordenadas son locales a la raíz de cada taller y salen de medir la
+/// imagen de diseño sobre los suelos ya colocados:
 ///   Taller limpieza  X[-1.84, 5.03]  Y[1.75, 6.77]
 ///   Recepción        X[-0.21, 5.03]  Y[-1.69, 1.75]
 ///   Hall             X[-3.43, 5.03]  Y[-6.77, -1.69]
 /// </summary>
 public static class Taller1Builder
 {
-    private const string RootName = "Taller1";
     private const string WorkDeskPrefabPath = "Assets/Prefabs/WorkDesk/WorkDesk.prefab";
+
+    // ── Talleres ──────────────────────────────────────────────────────
+
+    /// <summary>Cuántos talleres se construyen. Todos iguales por ahora.</summary>
+    private const int WorkshopCount = 2;
+
+    /// <summary>
+    /// Cuánto se aparta cada taller del anterior. Un taller ocupa unas diez
+    /// unidades de ancho, así que con catorce quedan cuatro de hueco entre
+    /// ellos: se distinguen bien y ninguno asoma en la pantalla del otro.
+    /// </summary>
+    private static readonly Vector2 WorkshopSpacing = new(14f, 0f);
+
+    /// <summary>
+    /// Lo que cuesta el segundo taller si no hay nada mejor que usar. Es el
+    /// valor que ya tenías en WorkStation2.asset; si ese asset existe, se lee
+    /// de ahí.
+    /// </summary>
+    private const double DefaultNextWorkshopCost = 10000;
+    private const string LegacyWorkStation2Path = "Assets/ScriptableObjects/WorkStation/WorkStation2.asset";
+
+    /// <summary>
+    /// La suma de niveles que tiene que tener un taller para poder comprar el
+    /// siguiente, si no hay nada puesto a mano. Un taller recién abierto suma
+    /// 5 (la primera mesa, los dos carritos y los dos mostradores) y al
+    /// máximo, 588.
+    /// </summary>
+    private const int DefaultRequiredPreviousLevel = 100;
+
+    /// <summary>Nombre de la raíz del taller número <paramref name="index"/> (desde 0).</summary>
+    private static string RootNameFor(int index) => $"Taller{index + 1}";
+
+    /// <summary>
+    /// Lo que ocupa un taller, en coordenadas locales: la unión de todas sus
+    /// salas, del almacén a la izquierda al hall por abajo.
+    /// </summary>
+    private static readonly Vector2 WorkshopBoundsCenter = new(-0.005f, 0f);
+    private static readonly Vector2 WorkshopBoundsSize = new(10.08f, 13.54f);
+
+    /// <summary>
+    /// A dónde va la cámara si en la escena no hay cámara de la que sacarlo:
+    /// entre la recepción y el taller, que es donde pasa casi todo.
+    /// </summary>
+    private static readonly Vector2 DefaultHomePoint = new(1.60f, 0.40f);
 
     // De aquí se saca el círculo de progreso: el mismo que usan los workers de
     // mesa, clonado tal cual, para que no haya dos círculos distintos.
@@ -279,7 +335,7 @@ public static class Taller1Builder
 
     // ── Menú ─────────────────────────────────────────────────────────
 
-    [MenuItem("Taller/Construir layout Taller 1")]
+    [MenuItem("Taller/Construir talleres")]
     public static void Build()
     {
         GameObject deskPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(WorkDeskPrefabPath);
@@ -287,7 +343,7 @@ public static class Taller1Builder
         if (deskPrefab == null)
         {
             EditorUtility.DisplayDialog(
-                "Taller 1",
+                "Talleres",
                 $"No encuentro el prefab de mesa:\n{WorkDeskPrefabPath}",
                 "Vale");
             return;
@@ -298,20 +354,117 @@ public static class Taller1Builder
         // mejoras fallaría al abrirlo. Mejor no construir nada.
         if (!UpgradeAssetsAreValid()) return;
 
-        GameObject existing = GameObject.Find(RootName);
-        if (existing != null)
+        // Buscados entre las raíces de la escena y no con GameObject.Find, que
+        // no ve los objetos apagados: el segundo taller lo está, y no
+        // encontrarlo haría que cada reconstrucción añadiera uno más.
+        GameObject[] existing = FindWorkshopRoots();
+
+        if (System.Array.Exists(existing, go => go != null))
         {
             bool replace = EditorUtility.DisplayDialog(
-                "Taller 1",
-                $"Ya existe un objeto \"{RootName}\" en la escena. Se borrará y se reconstruirá desde cero.\n\n¿Continuar?",
+                "Talleres",
+                "Se van a reconstruir los talleres desde cero.\n\n" +
+                "Se conservan su posición y los ids de guardado, así que la partida " +
+                "guardada sigue valiendo.\n\n¿Continuar?",
                 "Reconstruir", "Cancelar");
 
             if (!replace) return;
-            Undo.DestroyObjectImmediate(existing);
         }
 
-        GameObject root = new(RootName);
-        Undo.RegisterCreatedObjectUndo(root, "Construir Taller 1");
+        // Todo lo que hay que conservar se lee ANTES de borrar nada.
+        Vector3 firstPosition = existing[0] != null ? existing[0].transform.position : Vector3.zero;
+
+        var savedIds = new Dictionary<string, string>[WorkshopCount];
+        var savedSettings = new WorkshopSettings[WorkshopCount];
+
+        for (int i = 0; i < WorkshopCount; i++)
+        {
+            savedIds[i] = existing[i] != null ? CaptureSaveIds(existing[i]) : new Dictionary<string, string>();
+            savedSettings[i] = existing[i] != null ? WorkshopSettings.From(existing[i]) : null;
+        }
+
+        CustomerManager template = TakeCustomerTemplate(existing[0]);
+        if (template == null) return;
+
+        Transform map = FindRoot("Map")?.transform;
+        Vector3 homeLocal = HomeLocal(firstPosition);
+
+        foreach (GameObject go in existing)
+            if (go != null) Undo.DestroyObjectImmediate(go);
+
+        var workshops = new List<Workshop>();
+
+        for (int i = 0; i < WorkshopCount; i++)
+        {
+            GameObject root = BuildWorkshop(i, deskPrefab, template, savedSettings[i], homeLocal);
+
+            // Los suelos del primero son los del mapa, puestos a mano. Los
+            // demás se copian de esos, así que quedan idénticos.
+            if (i > 0 && map != null) CloneFloors(root, map, firstPosition);
+
+            root.transform.position = firstPosition + (Vector3)(WorkshopSpacing * i);
+
+            RestoreSaveIds(root, savedIds[i]);
+            VerifyUpgradeablesWired(root);
+
+            workshops.Add(root.GetComponent<Workshop>());
+        }
+
+        Object.DestroyImmediate(template.gameObject);
+
+        // Los ids que falten —elementos nuevos, o el segundo taller la primera
+        // vez— se asignan ahora, con los talleres ya montados.
+        int assigned = SaveAudit.AssignMissingIds();
+
+        // Apagados después de todo lo demás: con el taller encendido mientras
+        // se monta, Unity trata cada pieza como si estuviera activa y el
+        // cableado es el mismo que el del primero.
+        for (int i = 1; i < workshops.Count; i++)
+            workshops[i].gameObject.SetActive(false);
+
+        RetireSceneCustomerManager();
+        WireUnlocker(workshops);
+        WireTapHandler();
+        WireCamera(workshops);
+        BuildWorkshopUI();
+
+        Selection.activeGameObject = workshops[0].gameObject;
+        EditorSceneMarkDirty();
+
+        Debug.Log(
+            $"[Taller1Builder] {workshops.Count} talleres construidos. " +
+            (assigned > 0 ? $"{assigned} id(s) de guardado nuevos. " : "") +
+            "Revisa la escena y guarda (Ctrl+S).");
+    }
+
+    /// <summary>
+    /// Monta un taller completo con la raíz en el origen. Quien llama lo
+    /// coloca después en su sitio.
+    ///
+    /// Se monta en el origen y no directamente en su sitio porque todas las
+    /// coordenadas del layout son locales al taller: así un taller es igual
+    /// que otro y solo cambia dónde se deja al final.
+    /// </summary>
+    private static GameObject BuildWorkshop(
+        int index, GameObject deskPrefab, CustomerManager template,
+        WorkshopSettings saved, Vector3 homeLocal)
+    {
+        GameObject root = new(RootNameFor(index));
+        Undo.RegisterCreatedObjectUndo(root, "Construir talleres");
+
+        Workshop workshop = root.AddComponent<Workshop>();
+        SerializedObject workshopSo = new(workshop);
+        workshopSo.FindProperty("displayName").stringValue =
+            saved?.DisplayName ?? $"Taller {index + 1}";
+        workshopSo.FindProperty("unlockCost").doubleValue =
+            saved?.UnlockCost ?? (index == 0 ? 0 : NextWorkshopCost());
+        workshopSo.FindProperty("requiredPreviousLevel").intValue =
+            saved?.RequiredPreviousLevel ?? (index == 0 ? 0 : DefaultRequiredPreviousLevel);
+        workshopSo.FindProperty("homePoint").objectReferenceValue =
+            NewChild(root.transform, "Inicio", homeLocal).transform;
+        workshopSo.FindProperty("boundsCenter").vector2Value = WorkshopBoundsCenter;
+        workshopSo.FindProperty("boundsSize").vector2Value = WorkshopBoundsSize;
+        workshopSo.ApplyModifiedPropertiesWithoutUndo();
 
         WorkStation station = root.AddComponent<WorkStation>();
 
@@ -363,16 +516,11 @@ public static class Taller1Builder
             seatsFocus,
             hallDecorations);
 
-        WireCustomerManager(dropOff, pickup, waitingArea, hall);
-        WireUnlocker(station);
-        WireTapHandler();
+        // Cada taller lleva su propio gestor de clientes, con su cola, sus
+        // mostradores y su sala de espera.
+        BuildCustomerManager(root, template, station, dropOff, pickup, waitingArea, hall);
 
-        VerifyUpgradeablesWired(root);
-
-        Selection.activeGameObject = root;
-        EditorSceneMarkDirty();
-
-        Debug.Log("[Taller1Builder] Layout construido. Revisa la escena y guarda (Ctrl+S).");
+        return root;
     }
 
     // ── Recepción: mostrador de entrega (pasos 2 y 3) ─────────────────
@@ -1797,16 +1945,34 @@ public static class Taller1Builder
         so.ApplyModifiedPropertiesWithoutUndo();
     }
 
-    private static void WireCustomerManager(
+    // ── Clientes ──────────────────────────────────────────────────────
+
+    /// <summary>
+    /// El gestor de clientes del taller: su cola, sus mostradores, su sala de
+    /// espera y sus caminos.
+    ///
+    /// Lo que no es del layout —el prefab de cliente, la base de objetos, los
+    /// tiempos, la probabilidad de sentarse— se copia de la plantilla, que es
+    /// el gestor que ya tenías configurado a mano. Así esos ajustes se tocan en
+    /// un solo sitio y valen para todos los talleres.
+    /// </summary>
+    private static void BuildCustomerManager(
+        GameObject root, CustomerManager template, WorkStation station,
         ReceptionDesk dropOff, PickupDesk pickup, WaitingArea waitingArea, HallAnchors hall)
     {
-        CustomerManager manager = Object.FindAnyObjectByType<CustomerManager>(FindObjectsInactive.Include);
-        if (manager == null)
-        {
-            Debug.LogWarning("[Taller1Builder] No hay CustomerManager en la escena: no se ha podido cablear la cola.");
-            return;
-        }
+        GameObject go = NewChild(root.transform, "Clientes", Vector2.zero);
+        CustomerManager manager = go.AddComponent<CustomerManager>();
 
+        EditorUtility.CopySerialized(template, manager);
+
+        // CopySerialized copia también si el componente está activado. La
+        // plantilla de la escena se apaga al acabar de construir, así que a
+        // partir de la segunda reconstrucción todos los gestores saldrían
+        // apagados, y no entraría ni un cliente en ningún taller.
+        manager.enabled = true;
+
+        // Y encima, todo lo que es de este taller: lo copiado de la plantilla
+        // apunta al taller viejo, que ya no existe.
         SerializedObject so = new(manager);
         so.FindProperty("deskSlot").objectReferenceValue = hall.DeskSlot;
         so.FindProperty("pickupSlot").objectReferenceValue = hall.PickupSlot;
@@ -1820,17 +1986,586 @@ public static class Taller1Builder
 
         SetObjectList(so.FindProperty("pathWaypoints"), hall.EntryPath);
         SetObjectList(so.FindProperty("returnWaypoints"), hall.ReturnPath);
+        SetObjectList(so.FindProperty("workStations"), new List<WorkStation> { station });
 
         so.ApplyModifiedPropertiesWithoutUndo();
     }
 
-    private static void WireUnlocker(WorkStation station)
+    /// <summary>
+    /// Una copia temporal del gestor de clientes que sirve de plantilla, hecha
+    /// antes de borrar nada.
+    ///
+    /// Se prefiere el de la escena (el que configuraste a mano); si ya no está,
+    /// el del primer taller. Se copia porque el del taller se va a borrar al
+    /// reconstruir, y sin copia no quedaría de dónde sacar el prefab de cliente.
+    /// Quien llama la destruye al acabar.
+    /// </summary>
+    private static CustomerManager TakeCustomerTemplate(GameObject firstWorkshop)
+    {
+        CustomerManager source = SceneCustomerManager();
+
+        if (source == null && firstWorkshop != null)
+            source = firstWorkshop.GetComponentInChildren<CustomerManager>(includeInactive: true);
+
+        if (source == null)
+        {
+            EditorUtility.DisplayDialog(
+                "Talleres",
+                "No encuentro ningún CustomerManager del que sacar el prefab de cliente, " +
+                "la base de objetos y los tiempos.\n\nAñade uno a la escena, configúralo y " +
+                "vuelve a construir.",
+                "Vale");
+            return null;
+        }
+
+        GameObject copy = Object.Instantiate(source.gameObject);
+        copy.hideFlags = HideFlags.HideAndDontSave;
+        return copy.GetComponent<CustomerManager>();
+    }
+
+    /// <summary>El gestor de clientes que está fuera de cualquier taller, si lo hay.</summary>
+    private static CustomerManager SceneCustomerManager()
+    {
+        foreach (CustomerManager manager in
+                 Object.FindObjectsByType<CustomerManager>(FindObjectsInactive.Include))
+        {
+            if (manager.GetComponentInParent<Workshop>(includeInactive: true) == null)
+                return manager;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Apaga el gestor de clientes de la escena. Ya no gestiona nada —cada
+    /// taller lleva el suyo— y si siguiera encendido metería clientes en la
+    /// cola de un taller que ya no existe.
+    ///
+    /// Se apaga el componente, no se borra: se queda como plantilla de ajustes
+    /// para las próximas reconstrucciones, y así lo que configuraste a mano no
+    /// se pierde.
+    /// </summary>
+    private static void RetireSceneCustomerManager()
+    {
+        CustomerManager manager = SceneCustomerManager();
+        if (manager == null || !manager.enabled) return;
+
+        Undo.RecordObject(manager, "Construir talleres");
+        manager.enabled = false;
+
+        Debug.Log(
+            $"[Taller1Builder] '{manager.name}' ya no gestiona clientes: cada taller lleva el " +
+            "suyo. Se queda apagado como plantilla de ajustes (prefab de cliente, base de " +
+            "objetos, tiempos), así que tócalo ahí y reconstruye.", manager);
+    }
+
+    // ── Talleres ──────────────────────────────────────────────────────
+
+    /// <summary>Lo que se conserva de un taller al reconstruirlo.</summary>
+    private class WorkshopSettings
+    {
+        public string DisplayName;
+        public double UnlockCost;
+        public int? RequiredPreviousLevel;
+
+        public static WorkshopSettings From(GameObject root)
+        {
+            Workshop workshop = root.GetComponent<Workshop>();
+            if (workshop == null) return null;
+
+            // Un taller de la versión anterior no tenía este campo y lo trae a
+            // 0: eso sería "sin requisito", así que se trata como no puesto.
+            int required = workshop.RequiredPreviousLevel;
+
+            return new WorkshopSettings
+            {
+                DisplayName = workshop.DisplayName,
+                UnlockCost = workshop.UnlockCost,
+                RequiredPreviousLevel = required > 0 ? required : null,
+            };
+        }
+    }
+
+    /// <summary>
+    /// Las raíces de los talleres que ya haya en la escena, en orden, con null
+    /// donde falte alguno.
+    /// </summary>
+    private static GameObject[] FindWorkshopRoots()
+    {
+        var found = new GameObject[WorkshopCount];
+
+        for (int i = 0; i < WorkshopCount; i++)
+            found[i] = FindRoot(RootNameFor(i));
+
+        return found;
+    }
+
+    /// <summary>
+    /// Una raíz de la escena por nombre, esté encendida o no. GameObject.Find
+    /// no sirve: no ve los objetos apagados.
+    /// </summary>
+    private static GameObject FindRoot(string name)
+    {
+        foreach (GameObject go in SceneManager.GetActiveScene().GetRootGameObjects())
+            if (go.name == name) return go;
+
+        return null;
+    }
+
+    /// <summary>
+    /// Lo que cuesta el segundo taller: lo que pusiste en WorkStation2.asset si
+    /// existe, o el valor por defecto.
+    /// </summary>
+    private static double NextWorkshopCost()
+    {
+        WorkStationData legacy = AssetDatabase.LoadAssetAtPath<WorkStationData>(LegacyWorkStation2Path);
+        return legacy != null && legacy.cost > 0 ? legacy.cost : DefaultNextWorkshopCost;
+    }
+
+    /// <summary>
+    /// A dónde va la cámara al visitar un taller, medido desde su raíz.
+    ///
+    /// Sale de dónde está la cámara en la escena respecto al primer taller: es
+    /// la vista con la que arranca el juego, así que volver al taller 1 te deja
+    /// donde empezaste, y el taller 2 se ve igual que el 1.
+    /// </summary>
+    private static Vector3 HomeLocal(Vector3 firstPosition)
+    {
+        Camera cam = Camera.main;
+        if (cam == null) return DefaultHomePoint;
+
+        Vector3 local = cam.transform.position - firstPosition;
+        return new Vector3(local.x, local.y, 0f);
+    }
+
+    /// <summary>
+    /// Copia los suelos del mapa dentro de un taller, en el mismo sitio
+    /// relativo. Así el taller trae sus suelos consigo y cuadra con ellos esté
+    /// donde esté.
+    ///
+    /// Los del primer taller no se tocan: son los del mapa, puestos a mano.
+    /// </summary>
+    private static void CloneFloors(GameObject root, Transform map, Vector3 firstPosition)
+    {
+        GameObject floors = NewChild(root.transform, "Suelos", Vector2.zero);
+
+        foreach (Transform floor in map)
+        {
+            if (!floor.TryGetComponent(out SpriteRenderer source)) continue;
+
+            GameObject copy = NewChild(floors.transform, floor.name,
+                (Vector2)(floor.position - firstPosition));
+
+            copy.transform.localScale = floor.lossyScale;
+
+            SpriteRenderer sr = copy.AddComponent<SpriteRenderer>();
+            sr.sprite = source.sprite;
+            sr.color = source.color;
+            sr.sortingLayerID = source.sortingLayerID;
+            sr.sortingOrder = source.sortingOrder;
+            sr.drawMode = source.drawMode;
+            if (source.drawMode != SpriteDrawMode.Simple) sr.size = source.size;
+        }
+    }
+
+    private static void WireUnlocker(List<Workshop> workshops)
     {
         WorkStationUnlocker unlocker = Object.FindAnyObjectByType<WorkStationUnlocker>(FindObjectsInactive.Include);
-        if (unlocker == null) return;
+        if (unlocker == null)
+        {
+            Debug.LogWarning(
+                "[Taller1Builder] No hay WorkStationUnlocker en la escena: no se podrá abrir " +
+                "ningún taller más allá del primero.");
+            return;
+        }
 
         SerializedObject so = new(unlocker);
-        so.FindProperty("initialWorkStation").objectReferenceValue = station;
+        SetObjectList(so.FindProperty("workshops"), workshops);
+        so.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    /// <summary>
+    /// Amplía los límites de la cámara para que llegue a todos los talleres,
+    /// estén abiertos o no. Solo amplía: lo que hubiera puesto a mano se
+    /// respeta si ya era más grande.
+    /// </summary>
+    private static void WireCamera(List<Workshop> workshops)
+    {
+        CameraController cam = Object.FindAnyObjectByType<CameraController>(FindObjectsInactive.Include);
+        if (cam == null) return;
+
+        SerializedObject so = new(cam);
+        float margin = so.FindProperty("defaultZoom").floatValue;
+
+        foreach (Workshop workshop in workshops)
+        {
+            Bounds b = workshop.WorldBounds;
+
+            Expand(so.FindProperty("xMin"), b.min.x - margin, Mathf.Min);
+            Expand(so.FindProperty("xMax"), b.max.x + margin, Mathf.Max);
+            Expand(so.FindProperty("yMin"), b.min.y - margin, Mathf.Min);
+            Expand(so.FindProperty("yMax"), b.max.y + margin, Mathf.Max);
+        }
+
+        so.ApplyModifiedPropertiesWithoutUndo();
+
+        static void Expand(SerializedProperty p, float value, System.Func<float, float, float> pick) =>
+            p.floatValue = pick(p.floatValue, value);
+    }
+
+    // ── Ids de guardado ───────────────────────────────────────────────
+
+    /// <summary>
+    /// Los ids de guardado de un taller, por la ruta de cada elemento dentro
+    /// de él.
+    ///
+    /// Reconstruir crea todos los componentes de nuevo, y cada uno recibe un id
+    /// nuevo. La partida guardada del jugador se quedaría apuntando a los ids
+    /// viejos, que ya no tiene nadie: todo lo comprado en salas, decoraciones y
+    /// carritos se perdería en silencio. Como el builder monta siempre el mismo
+    /// árbol, la ruta identifica al mismo elemento antes y después.
+    /// </summary>
+    private static Dictionary<string, string> CaptureSaveIds(GameObject root)
+    {
+        var ids = new Dictionary<string, string>();
+
+        foreach (var (key, element) in SaveableElements(root))
+            if (!string.IsNullOrEmpty(element.SaveId)) ids[key] = element.SaveId;
+
+        return ids;
+    }
+
+    private static void RestoreSaveIds(GameObject root, Dictionary<string, string> ids)
+    {
+        if (ids == null || ids.Count == 0) return;
+
+        foreach (var (key, element) in SaveableElements(root))
+        {
+            if (!ids.TryGetValue(key, out string id)) continue;
+
+            SerializedObject so = new(element as Object);
+            SerializedProperty property = so.FindProperty("saveId");
+            if (property == null) continue;
+
+            property.stringValue = id;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+    }
+
+    /// <summary>
+    /// Cada elemento que se guarda por id, con una clave estable: su ruta
+    /// dentro del taller y su tipo. Si dos cosas acabaran con la misma clave
+    /// (dos hermanos con el mismo nombre), se numeran por orden de aparición,
+    /// que es el mismo al capturar y al restaurar porque el árbol es el mismo.
+    /// </summary>
+    private static IEnumerable<(string key, ISaveableElement element)> SaveableElements(GameObject root)
+    {
+        var seen = new Dictionary<string, int>();
+
+        foreach (MonoBehaviour behaviour in root.GetComponentsInChildren<MonoBehaviour>(includeInactive: true))
+        {
+            if (behaviour is not ISaveableElement element || !element.SavesItself) continue;
+
+            string key = RelativePath(root.transform, behaviour.transform) + "|" + behaviour.GetType().Name;
+
+            seen.TryGetValue(key, out int count);
+            seen[key] = count + 1;
+
+            yield return (count == 0 ? key : $"{key}#{count}", element);
+        }
+    }
+
+    private static string RelativePath(Transform root, Transform target)
+    {
+        var parts = new List<string>();
+
+        for (Transform t = target; t != null && t != root; t = t.parent)
+            parts.Add(t.name);
+
+        parts.Reverse();
+        return string.Join("/", parts);
+    }
+
+    // ── Interfaz de talleres ──────────────────────────────────────────
+
+    private const string DotsName = "PuntosTalleres";
+
+    // El selector de flechas de la versión anterior. Se borra si sigue en la
+    // escena: su script ya no existe y se quedaría como "Missing Script".
+    private const string LegacySwitcherName = "SelectorTalleres";
+
+    // El panel de comprar taller.
+    private const string UnlockPanelName = "CompraTaller";
+
+    // El panel de pruebas donde antes vivía el botón de comprar. Se deja como
+    // estaba: tiene también el campo de monedas de la tecla Z.
+    private const string LegacyTestPanelName = "UnlockTest";
+    private const string LegacyUnlockButtonName = "UnlockWorkStationButton";
+
+    /// <summary>
+    /// Los puntitos de abajo, uno por taller, y encima el panel de comprar.
+    /// </summary>
+    private static void BuildWorkshopUI()
+    {
+        Transform canvas = FindUICanvas();
+        if (canvas == null)
+        {
+            Debug.LogWarning(
+                "[Taller1Builder] No encuentro un Canvas de pantalla donde poner los puntitos " +
+                "y el panel de comprar taller.");
+            return;
+        }
+
+        foreach (string name in new[] { DotsName, LegacySwitcherName, UnlockPanelName })
+        {
+            Transform old = canvas.Find(name);
+            if (old != null) Undo.DestroyObjectImmediate(old.gameObject);
+        }
+
+        RetireLegacyUnlockButton();
+
+        BuildUnlockPanel(canvas);
+        BuildDots(canvas);
+    }
+
+    /// <summary>
+    /// El Canvas de la interfaz: el que ya tenga los puntitos o el botón de
+    /// comprar, o si no el primero que se dibuje sobre la pantalla.
+    /// </summary>
+    private static Transform FindUICanvas()
+    {
+        foreach (WorkStationUnlockUI ui in Object.FindObjectsByType<WorkStationUnlockUI>(FindObjectsInactive.Include))
+        {
+            Canvas owner = ui.GetComponentInParent<Canvas>(includeInactive: true);
+            if (owner != null) return owner.rootCanvas.transform;
+        }
+
+        foreach (Canvas canvas in Object.FindObjectsByType<Canvas>(FindObjectsInactive.Include))
+            if (canvas.isRootCanvas && canvas.renderMode != RenderMode.WorldSpace)
+                return canvas.transform;
+
+        return null;
+    }
+
+    /// <summary>
+    /// El botón de comprar de antes estaba dentro del panel de pruebas. Se le
+    /// quita el componente —ahora lo lleva el panel nuevo— y se apaga el botón
+    /// viejo, que ya no haría nada.
+    ///
+    /// Si una reconstrucción anterior lo había centrado, se devuelve a donde
+    /// estaba: arriba, con el campo de monedas de pruebas.
+    /// </summary>
+    private static void RetireLegacyUnlockButton()
+    {
+        foreach (WorkStationUnlockUI ui in Object.FindObjectsByType<WorkStationUnlockUI>(FindObjectsInactive.Include))
+        {
+            if (ui.gameObject.name == UnlockPanelName) continue;
+
+            GameObject go = ui.gameObject;
+            Undo.DestroyObjectImmediate(ui);
+
+            if (!go.activeSelf)
+            {
+                Undo.RecordObject(go, "Construir talleres");
+                go.SetActive(true);
+            }
+
+            Transform oldButton = go.transform.Find(LegacyUnlockButtonName);
+            if (oldButton != null && oldButton.gameObject.activeSelf)
+            {
+                Undo.RecordObject(oldButton.gameObject, "Construir talleres");
+                oldButton.gameObject.SetActive(false);
+            }
+
+            RestoreLegacyTestPanel(go.GetComponent<RectTransform>());
+        }
+    }
+
+    private static void RestoreLegacyTestPanel(RectTransform rt)
+    {
+        if (rt == null || rt.name != LegacyTestPanelName) return;
+
+        // Solo si está como lo dejó la versión anterior del builder (centrado y
+        // sin tamaño). Si lo has movido tú, no se toca.
+        bool centredByBuilder =
+            rt.anchorMin == new Vector2(0.5f, 0.5f) && rt.anchorMax == new Vector2(0.5f, 0.5f) &&
+            rt.sizeDelta == Vector2.zero && rt.anchoredPosition == Vector2.zero;
+
+        if (!centredByBuilder) return;
+
+        Undo.RecordObject(rt, "Construir talleres");
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+        rt.pivot = new Vector2(0.5f, 0.5f);
+        rt.sizeDelta = Vector2.zero;
+        rt.anchoredPosition = new Vector2(0f, 1337f);
+    }
+
+    /// <summary>
+    /// El panel de comprar, abajo en el centro, justo encima de los puntitos:
+    /// es a donde mira el pulgar después de pulsar uno.
+    ///
+    /// La raíz se queda encendida siempre y sin gráfico —no tapa ni bloquea
+    /// nada—; lo que se enciende y apaga es "Contenido". Así el componente
+    /// sigue mirando aunque el panel no se vea.
+    /// </summary>
+    private static void BuildUnlockPanel(Transform canvas)
+    {
+        TMP_FontAsset font = FindUIFont(canvas);
+
+        GameObject root = new(UnlockPanelName, typeof(RectTransform));
+        Undo.RegisterCreatedObjectUndo(root, "Construir talleres");
+        root.transform.SetParent(canvas, worldPositionStays: false);
+
+        RectTransform rootRt = (RectTransform)root.transform;
+        rootRt.anchorMin = rootRt.anchorMax = new Vector2(0.5f, 0f);
+        rootRt.pivot = new Vector2(0.5f, 0f);
+        rootRt.anchoredPosition = new Vector2(0f, 170f);
+        rootRt.sizeDelta = new Vector2(780f, 380f);
+
+        // Fondo oscuro con esquinas redondeadas.
+        GameObject content = new("Contenido", typeof(RectTransform));
+        content.transform.SetParent(root.transform, worldPositionStays: false);
+        Stretch((RectTransform)content.transform);
+
+        Image background = content.AddComponent<Image>();
+        background.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
+        background.type = Image.Type.Sliced;
+        background.color = new Color(0.12f, 0.10f, 0.09f, 0.9f);
+
+        VerticalLayoutGroup layout = content.AddComponent<VerticalLayoutGroup>();
+        layout.padding = new RectOffset(28, 28, 22, 26);
+        layout.spacing = 10f;
+        layout.childAlignment = TextAnchor.UpperCenter;
+        layout.childControlWidth = true;
+        layout.childControlHeight = true;
+        layout.childForceExpandWidth = false;
+        layout.childForceExpandHeight = false;
+
+        TextMeshProUGUI title = AddPanelText(content.transform, "Titulo", font, 56f, FontStyles.Bold, 66f);
+        TextMeshProUGUI cost = AddPanelText(content.transform, "Precio", font, 40f, FontStyles.Normal, 50f);
+        TextMeshProUGUI level = AddPanelText(content.transform, "Nivel", font, 40f, FontStyles.Normal, 50f);
+
+        // El botón.
+        GameObject buttonGo = new("Desbloquear", typeof(RectTransform));
+        buttonGo.transform.SetParent(content.transform, worldPositionStays: false);
+
+        LayoutElement buttonLayout = buttonGo.AddComponent<LayoutElement>();
+        buttonLayout.preferredWidth = 440f;
+        buttonLayout.preferredHeight = 110f;
+
+        Image buttonImage = buttonGo.AddComponent<Image>();
+        buttonImage.sprite = background.sprite;
+        buttonImage.type = Image.Type.Sliced;
+
+        Button button = buttonGo.AddComponent<Button>();
+        button.targetGraphic = buttonImage;
+
+        // El color lo pone el componente (verde o gris); el tinte del botón
+        // solo oscurece al pulsar, y desactivado no añade nada encima.
+        ColorBlock colors = button.colors;
+        colors.normalColor = Color.white;
+        colors.highlightedColor = new Color(0.95f, 0.95f, 0.95f);
+        colors.pressedColor = new Color(0.8f, 0.8f, 0.8f);
+        colors.selectedColor = Color.white;
+        colors.disabledColor = Color.white;
+        button.colors = colors;
+
+        GameObject labelGo = new("Texto", typeof(RectTransform));
+        labelGo.transform.SetParent(buttonGo.transform, worldPositionStays: false);
+        Stretch((RectTransform)labelGo.transform);
+
+        TextMeshProUGUI label = labelGo.AddComponent<TextMeshProUGUI>();
+        if (font != null) label.font = font;
+        label.text = "Desbloquear";
+        label.fontSize = 46f;
+        label.fontStyle = FontStyles.Bold;
+        label.alignment = TextAlignmentOptions.Center;
+        label.color = Color.white;
+        label.raycastTarget = false;
+
+        // Apagado en la escena: el componente lo enciende cuando toca.
+        content.SetActive(false);
+
+        WorkStationUnlockUI ui = root.AddComponent<WorkStationUnlockUI>();
+        SerializedObject so = new(ui);
+        so.FindProperty("content").objectReferenceValue = content;
+        so.FindProperty("titleText").objectReferenceValue = title;
+        so.FindProperty("costText").objectReferenceValue = cost;
+        so.FindProperty("levelText").objectReferenceValue = level;
+        so.FindProperty("unlockButton").objectReferenceValue = button;
+        so.FindProperty("buttonLabel").objectReferenceValue = label;
+        so.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    private static TextMeshProUGUI AddPanelText(
+        Transform parent, string name, TMP_FontAsset font, float size, FontStyles style, float height)
+    {
+        GameObject go = new(name, typeof(RectTransform));
+        go.transform.SetParent(parent, worldPositionStays: false);
+
+        LayoutElement element = go.AddComponent<LayoutElement>();
+        element.preferredWidth = 700f;
+        element.preferredHeight = height;
+
+        TextMeshProUGUI text = go.AddComponent<TextMeshProUGUI>();
+        if (font != null) text.font = font;
+        text.fontSize = size;
+        text.fontStyle = style;
+        text.alignment = TextAlignmentOptions.Center;
+        text.color = Color.white;
+        text.textWrappingMode = TextWrappingModes.NoWrap;
+        text.overflowMode = TextOverflowModes.Ellipsis;
+        text.raycastTarget = false;
+
+        return text;
+    }
+
+    /// <summary>La fuente que ya use la interfaz, para que el panel no desentone.</summary>
+    private static TMP_FontAsset FindUIFont(Transform canvas)
+    {
+        foreach (TextMeshProUGUI text in canvas.GetComponentsInChildren<TextMeshProUGUI>(includeInactive: true))
+            if (text.font != null) return text.font;
+
+        return TMP_Settings.defaultFontAsset;
+    }
+
+    private static void Stretch(RectTransform rt)
+    {
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+        rt.pivot = new Vector2(0.5f, 0.5f);
+        rt.sizeDelta = Vector2.zero;
+        rt.anchoredPosition = Vector2.zero;
+    }
+
+    /// <summary>
+    /// La fila de puntitos, abajo en el centro. Los puntos en sí los crea el
+    /// componente al arrancar, porque depende de cuántos talleres haya.
+    /// </summary>
+    private static void BuildDots(Transform canvas)
+    {
+        GameObject go = new(DotsName, typeof(RectTransform));
+        Undo.RegisterCreatedObjectUndo(go, "Construir talleres");
+        go.transform.SetParent(canvas, worldPositionStays: false);
+
+        RectTransform rt = go.GetComponent<RectTransform>();
+        rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0f);
+        rt.pivot = new Vector2(0.5f, 0f);
+        rt.anchoredPosition = new Vector2(0f, 60f);
+        rt.sizeDelta = new Vector2(400f, 80f);
+
+        HorizontalLayoutGroup layout = go.AddComponent<HorizontalLayoutGroup>();
+        layout.childAlignment = TextAnchor.MiddleCenter;
+        layout.spacing = 8f;
+        layout.childControlWidth = false;
+        layout.childControlHeight = false;
+        layout.childForceExpandWidth = false;
+        layout.childForceExpandHeight = false;
+
+        WorkshopDotsUI dots = go.AddComponent<WorkshopDotsUI>();
+        SerializedObject so = new(dots);
+        so.FindProperty("container").objectReferenceValue = rt;
         so.ApplyModifiedPropertiesWithoutUndo();
     }
 

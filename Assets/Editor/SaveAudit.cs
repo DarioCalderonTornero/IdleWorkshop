@@ -41,6 +41,18 @@ public static class SaveAudit
         Report(elements, assigned, deduped, fromPrefab);
     }
 
+    /// <summary>
+    /// Lo mismo que el menú, sin diálogo: asigna los ids que falten y corrige
+    /// los repetidos. Lo usa el builder al acabar de montar los talleres, para
+    /// que ningún elemento nuevo se quede sin guardarse.
+    /// </summary>
+    /// <returns>Cuántos ids ha tenido que poner o cambiar.</returns>
+    public static int AssignMissingIds()
+    {
+        List<ISaveableElement> elements = Collect();
+        return FixMissing(elements) + FixDuplicates(elements);
+    }
+
     // ── Ids heredados de un prefab ───────────────────────────────────
 
     /// <summary>
@@ -99,7 +111,7 @@ public static class SaveAudit
         // y se filtra. Include para que cuenten también los que estén apagados:
         // un almacén por comprar tiene su cuerpo desactivado y aun así se guarda.
         foreach (MonoBehaviour behaviour in
-                 Object.FindObjectsByType<MonoBehaviour>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                 Object.FindObjectsByType<MonoBehaviour>(FindObjectsInactive.Include))
         {
             if (behaviour is ISaveableElement element && element.SavesItself)
                 found.Add(element);

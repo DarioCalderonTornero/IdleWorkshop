@@ -26,6 +26,7 @@ public class WorkDeskUnlockable : MonoBehaviour, IUnlockable
     [SerializeField] private bool unlockedByDefault = false;
 
     public bool IsUnlocked { get; private set; } = false;
+    public bool StartsUnlocked => unlockedByDefault;
     public double UnlockCost => unlockCost;
 
     public System.Action<WorkDeskUnlockable> OnUnlocked;

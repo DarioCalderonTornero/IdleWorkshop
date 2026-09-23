@@ -176,7 +176,7 @@ public class WorkTable : MonoBehaviour, IItemContainer
     /// </summary>
     public int GetReward(ItemDefinition item)
         => Mathf.RoundToInt(ShareOf(item.rewardCoins) * _levelRewardMultiplier * _zoneRewardMultiplier)
-           + CoinBonusRegistry.FlatPerProcess;
+           + CoinBonusRegistry.FlatPerProcessFor(this);
 
     /// <summary>
     /// La parte del precio que le toca a esta mesa.

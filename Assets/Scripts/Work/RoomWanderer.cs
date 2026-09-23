@@ -15,8 +15,14 @@ using UnityEngine;
 /// La ronda se recorre de ida y de vuelta por los mismos tramos, así que basta
 /// con comprobar que la ida está despejada.
 /// </summary>
-public class RoomWanderer : MonoBehaviour
+public class RoomWanderer : MonoBehaviour, IHiddenUntilBought
 {
+    /// <summary>El muñeco: no sale hasta comprar la habitación.</summary>
+    public System.Collections.Generic.IEnumerable<Transform> HiddenParts
+    {
+        get { if (body != null) yield return body; }
+    }
+
     [Header("Partes")]
     [Tooltip("El muñeco: lo que se ve y se balancea al andar")]
     [SerializeField] private Transform body;

@@ -13,12 +13,16 @@ using UnityEngine;
 /// La identidad de cada cliente es su ticket, un número, y no su GameObject:
 /// el que se marcha se destruye y más tarde vuelve otro distinto con el mismo
 /// ticket. Así cada objeto acaba en manos de quien lo trajo.
+///
+/// Hay uno por taller, colgado de él. Antes era único para toda la escena, y
+/// al abrir un segundo taller el nuevo se habría destruido a sí mismo al
+/// despertar — o, peor, un solo gestor habría repartido los clientes de los
+/// dos talleres por una única cola. Cada cliente sabe ya de qué gestor es
+/// (se lo pasa este al crearlo), así que no hace falta ninguno global.
 /// </summary>
 [DefaultExecutionOrder(BootOrder.Manager)]
 public class CustomerManager : MonoBehaviour
 {
-    public static CustomerManager Instance { get; private set; }
-
     [Header("Caminos")]
     [Tooltip("Camino de entrada, en orden: el último es el pie de la cola de entrega")]
     [SerializeField] private Transform[] pathWaypoints;
@@ -107,18 +111,6 @@ public class CustomerManager : MonoBehaviour
     // anterior está en el aire.
     private bool _handingOver;
 
-    private void Awake()
-    {
-        if (Instance != null)
-        {
-            Destroy(gameObject);
-            return;
-        }
-
-        Instance = this;
-        DontDestroyOnLoad(gameObject);
-    }
-
     private void Start()
     {
         ResolveWaitingArea();
@@ -134,8 +126,15 @@ public class CustomerManager : MonoBehaviour
     /// </summary>
     private void ResolveWaitingArea()
     {
+        // Dentro de su propio taller: en la escena hay más de una sala de
+        // espera, y la primera que apareciera podría ser la del otro.
         if (waitingArea == null)
-            waitingArea = FindAnyObjectByType<WaitingArea>(FindObjectsInactive.Exclude);
+        {
+            Workshop workshop = Workshop.Of(this);
+            waitingArea = workshop != null
+                ? workshop.GetComponentInChildren<WaitingArea>(includeInactive: false)
+                : FindAnyObjectByType<WaitingArea>(FindObjectsInactive.Exclude);
+        }
 
         if (waitingArea == null)
         {

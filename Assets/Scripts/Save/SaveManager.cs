@@ -65,6 +65,25 @@ public class SaveManager : MonoBehaviour
     private void Start()
     {
         LoadGame();
+        StartCoroutine(EndBootNextFrame());
+    }
+
+    /// <summary>
+    /// Cierra el arranque un frame más tarde, no en el acto.
+    ///
+    /// Cargar la partida puede encender un taller que estaba apagado —el
+    /// segundo, si el jugador ya lo había comprado—. Sus Awake corren en el
+    /// momento, pero sus Start llegan después, y es ahí donde las salas y
+    /// decoraciones deciden si se animan preguntando por BootPhase. Si el
+    /// arranque se cerrara aquí mismo, todo lo comprado en ese taller soltaría
+    /// un puf al abrir el juego, como si se acabara de comprar.
+    ///
+    /// Una corrutina que espera un frame vuelve después de los Update de ese
+    /// frame, y para entonces ya han corrido todos esos Start.
+    /// </summary>
+    private System.Collections.IEnumerator EndBootNextFrame()
+    {
+        yield return null;
 
         // La escena ya está montada entera y la partida aplicada: a partir de
         // aquí, lo que aparezca o desaparezca es porque ha pasado algo de
@@ -123,6 +142,10 @@ public class SaveManager : MonoBehaviour
             lastTimeSaved = DateTime.UtcNow.ToString("o"),
 
             coinsPerSecond = EconomyManager.Instance.CoinsPerSecond,
+
+            unlockedWorkshops = WorkStationUnlocker.Instance != null
+                ? WorkStationUnlocker.Instance.UnlockedCountToSave
+                : 1,
 
             workStations = WorkStationRegistry.Instance.GetAllSaveData(),
             bestiaryItems = BestiaryManager.Instance.GetSaveData()
@@ -226,6 +249,13 @@ public class SaveManager : MonoBehaviour
     private void ApplySaveData(SaveData data)
     {
         LoadedData = data;
+
+        // Lo primero, antes que nada más: abrir los talleres que el jugador ya
+        // había comprado. Al encenderse, sus elementos se apuntan en los
+        // registros; si esto fuera después, el SaveRegistry y el registro de
+        // talleres buscarían las salas y mesas del segundo taller y no las
+        // encontrarían, porque aún estarían apagadas.
+        WorkStationUnlocker.Instance?.RestoreProgression(data.unlockedWorkshops);
 
         EconomyManager.Instance.LoadCoins(data.coins);
         EconomyManager.Instance.LoadRate(data.coinsPerSecond);

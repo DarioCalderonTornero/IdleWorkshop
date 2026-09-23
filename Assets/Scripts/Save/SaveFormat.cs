@@ -11,7 +11,7 @@ using UnityEngine;
 public static class SaveFormat
 {
     /// <summary>La versión que escribe esta build.</summary>
-    public const int Current = 3;
+    public const int Current = 4;
 
     /// <summary>
     /// Las partidas anteriores a que existiera el campo `version`.
@@ -58,6 +58,17 @@ public static class SaveFormat
         // tiempo offline. Nada que convertir: una partida de la v2 la trae a 0,
         // así que no cobra offline hasta que se juegue un rato y se mida.
         if (data.version < 3) data.version = 3;
+
+        // v3 -> v4: aparece `unlockedWorkshops`, cuántos talleres ha abierto el
+        // jugador. Una partida de la v3 no lo trae y JsonUtility lo deja en 1,
+        // que es lo que tenía: un solo taller. Se asegura igualmente por si
+        // alguien editó el JSON a mano y puso 0 o menos, que dejaría la partida
+        // sin ningún taller abierto.
+        if (data.version < 4)
+        {
+            if (data.unlockedWorkshops < 1) data.unlockedWorkshops = 1;
+            data.version = 4;
+        }
 
         if (data.version != Current)
         {

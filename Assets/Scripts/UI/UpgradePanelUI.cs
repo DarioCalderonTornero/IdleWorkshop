@@ -59,19 +59,7 @@ public class UpgradePanelUI : SlidingPanelUI
         upgradeContent.SetActive(false);
         unlockButton.gameObject.SetActive(true);
 
-        bool meetsReqs = unlockable.MeetsRequirements();
-        double cost = unlockable.UnlockCost;
-
-        if (meetsReqs)
-        {
-            unlockCostText.text = $"Desbloquear\n{cost} monedas";
-            unlockButton.interactable = EconomyManager.Instance.CanAfford(cost);
-        }
-        else
-        {
-            unlockCostText.text = $"Requisitos pendientes:\n{unlockable.GetMissingRequirementsText()}";
-            unlockButton.interactable = false;
-        }
+        RefreshUnlockButton(unlockable);
 
         unlockButton.onClick.RemoveAllListeners();
         unlockButton.onClick.AddListener(() =>
@@ -133,6 +121,26 @@ public class UpgradePanelUI : SlidingPanelUI
     // ── UI ───────────────────────────────────────────────────────────
 
     /// <summary>
+    /// Repinta el botón de comprar. Es un solo método para abrir el panel y para
+    /// cuando cambian las monedas: si estuviera duplicado, las dos copias
+    /// acabarían diciendo cosas distintas.
+    /// </summary>
+    private void RefreshUnlockButton(IUnlockable unlockable)
+    {
+        if (unlockable.MeetsRequirements())
+        {
+            double cost = unlockable.UnlockCost;
+            unlockCostText.text = $"Desbloquear\n{cost} monedas";
+            unlockButton.interactable = EconomyManager.Instance.CanAfford(cost);
+        }
+        else
+        {
+            unlockCostText.text = $"Requisitos pendientes:\n{unlockable.GetMissingRequirementsText()}";
+            unlockButton.interactable = false;
+        }
+    }
+
+    /// <summary>
     /// Si se puede abrir el panel para este objetivo. Un mejorable sin
     /// UpgradeData no es un caso raro de runtime: pasa cuando algo quedó mal
     /// cableado en el inspector o en el builder, y conviene que se vea en la
@@ -173,6 +181,7 @@ public class UpgradePanelUI : SlidingPanelUI
             evolutionBarFill.fillAmount = Mathf.Clamp01(progress);
 
         bool maxLevel = level >= data.maxLevel;
+
         if (upgradeButton != null)
             upgradeButton.interactable = !maxLevel && currentTarget.CanUpgrade();
 
@@ -210,19 +219,9 @@ public class UpgradePanelUI : SlidingPanelUI
         }
         else if (currentUnlockable != null)
         {
-            bool meetsReqs = currentUnlockable.MeetsRequirements();
-            if (meetsReqs)
-            {
-                unlockCostText.text = $"Desbloquear\n{currentUnlockable.UnlockCost} monedas";
-                unlockButton.interactable = EconomyManager.Instance.CanAfford(
-                    currentUnlockable.UnlockCost);
-            }
-            else
-            {
-                unlockCostText.text = $"Requisitos pendientes:\n" +
-                                      $"{currentUnlockable.GetMissingRequirementsText()}";
-                unlockButton.interactable = false;
-            }
+            // El mismo repintado que al abrir: si estuviera duplicado aquí, un
+            // taller retirado volvería a enseñar el precio al ganar monedas.
+            RefreshUnlockButton(currentUnlockable);
         }
     }
 }

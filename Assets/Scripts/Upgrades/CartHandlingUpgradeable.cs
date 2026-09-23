@@ -24,8 +24,16 @@ public class CartHandlingUpgradeable : UpgradeableBase
     {
         base.Awake();
 
+        // Solo los de su taller. Con varios talleres, los de toda la escena
+        // serían también los del otro, y mejorar la carga en uno aceleraría
+        // los carritos de los dos.
         if (carts == null || carts.Length == 0)
-            carts = FindObjectsByType<CartWorker>(FindObjectsInactive.Include);
+        {
+            Workshop workshop = Workshop.Of(this);
+            carts = workshop != null
+                ? workshop.GetComponentsInChildren<CartWorker>(includeInactive: true)
+                : FindObjectsByType<CartWorker>(FindObjectsInactive.Include);
+        }
 
         if (carts.Length == 0)
             Debug.LogWarning($"[CartHandlingUpgradeable] {name}: no encuentro ningún carrito que mejorar.", this);

@@ -306,13 +306,29 @@ public class CartWorker : WorkerBase
             yield return TravelTo(idlePosition.position);
     }
 
+    private WorkshopNavGraph _nav;
+
+    /// <summary>
+    /// La red de navegación de SU taller, buscada una vez. Con varios talleres
+    /// la global sería la de cualquiera, y el carrito calcularía la ruta con
+    /// los nodos de otro taller.
+    /// </summary>
+    private WorkshopNavGraph Nav
+    {
+        get
+        {
+            if (_nav == null) _nav = WorkshopNavGraph.For(this);
+            return _nav;
+        }
+    }
+
     /// <summary>
     /// Va hasta el destino rodeando lo que haya, con las esquinas redondeadas y
     /// acelerando y frenando, en vez de a velocidad fija de punto en punto.
     /// </summary>
     private IEnumerator TravelTo(Vector3 destination)
     {
-        WorkshopNavGraph nav = WorkshopNavGraph.Instance;
+        WorkshopNavGraph nav = Nav;
 
         List<Vector3> path = nav != null
             ? nav.FindPath(transform.position, destination)

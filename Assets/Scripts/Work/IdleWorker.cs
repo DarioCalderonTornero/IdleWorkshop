@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -13,8 +14,14 @@ using UnityEngine;
 /// muñeco. Si se desactivara él, su corrutina moriría y con ella el bucle, y
 /// nadie quedaría escuchando el desbloqueo para volver a encenderlo.
 /// </summary>
-public class IdleWorker : MonoBehaviour, IUpgradePreview
+public class IdleWorker : MonoBehaviour, IUpgradePreview, IHiddenUntilBought
 {
+    /// <summary>El muñeco: no sale hasta comprar su sala.</summary>
+    public IEnumerable<Transform> HiddenParts
+    {
+        get { if (body != null) yield return body; }
+    }
+
     [Header("Partes")]
     [Tooltip("El muñeco: lo que se ve y se balancea. Se enciende al desbloquearse")]
     [SerializeField] private Transform body;

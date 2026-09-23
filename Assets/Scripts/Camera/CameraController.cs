@@ -50,6 +50,10 @@ public class CameraController : MonoBehaviour
              "para que no queden pegados al borde")]
     [SerializeField] private float focusMargin = 0.8f;
 
+    [Tooltip("Lo que tarda en ir de un taller a otro. Más largo que el de sala: " +
+             "es un viaje de verdad, y hecho de golpe desorienta")]
+    [SerializeField] private float travelDuration = 0.9f;
+
     /// <summary>El encuadre normal de una sala.</summary>
     public float DefaultZoom => defaultZoom;
 
@@ -272,6 +276,54 @@ public class CameraController : MonoBehaviour
     public void Unlock()
     {
         _isLocked = false;
+    }
+
+    // ── Viajar entre talleres ────────────────────────────────────────
+
+    /// <summary>
+    /// Lleva la cámara a otro taller y al llegar le devuelve el control al
+    /// jugador.
+    ///
+    /// No es FocusOn: aquel deja la cámara bloqueada, porque se usa con un
+    /// panel abierto que es quien la suelta al cerrarse. Aquí no hay panel —
+    /// se cierra antes de viajar—, así que si se quedara bloqueada el jugador
+    /// ya no podría arrastrar la cámara por el taller al que acaba de llegar.
+    /// </summary>
+    public void TravelTo(Vector3 targetPosition)
+    {
+        _isLocked = true;
+        _isDragging = false;
+        _velocity = Vector2.zero;
+
+        if (_focusCoroutine != null) StopCoroutine(_focusCoroutine);
+        _focusCoroutine = StartCoroutine(TravelRoutine(targetPosition));
+    }
+
+    private IEnumerator TravelRoutine(Vector3 targetPosition)
+    {
+        yield return FocusRoutine(targetPosition, defaultZoom, travelDuration);
+        Unlock();
+    }
+
+    /// <summary>
+    /// Amplía los límites de la cámara para que llegue a
+    /// <paramref name="bounds"/> entero.
+    ///
+    /// Solo amplía, nunca recorta: los límites que haya puestos en la escena
+    /// siguen valiendo, y cada taller que se abre se suma a ellos. Así el
+    /// tercer taller, cuando exista, no necesita que nadie se acuerde de
+    /// retocar la cámara.
+    /// </summary>
+    public void IncludeInBounds(Bounds bounds)
+    {
+        // Con margen, para poder centrar la cámara en el borde del taller y no
+        // solo verlo asomar.
+        float margin = defaultZoom;
+
+        xMin = Mathf.Min(xMin, bounds.min.x - margin);
+        xMax = Mathf.Max(xMax, bounds.max.x + margin);
+        yMin = Mathf.Min(yMin, bounds.min.y - margin);
+        yMax = Mathf.Max(yMax, bounds.max.y + margin);
     }
 
     private IEnumerator FocusRoutine(Vector3 targetPosition, float zoom, float duration)

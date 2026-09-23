@@ -31,6 +31,7 @@ public class Unlockable : MonoBehaviour, IUnlockable, ISaveableUnlock
     [SerializeField] private string saveId;
 
     public bool IsUnlocked { get; private set; }
+    public bool StartsUnlocked => unlockedByDefault;
     public double UnlockCost => unlockCost;
 
     // ── ISaveableUnlock ──────────────────────────────────────────────
