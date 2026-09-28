@@ -21,6 +21,7 @@ public class TapHandler : MonoBehaviour
     [SerializeField] private float maxTapDistance = 20f;
 
     private bool _isPressed;
+    private bool _pressStartedOverUI;
     private Vector2 _pressStartPos;
     private Vector2 _currentPos;
 
@@ -63,12 +64,22 @@ public class TapHandler : MonoBehaviour
     {
         _isPressed = true;
         _pressStartPos = _currentPos;
+
+        // Se mira al empezar el gesto, no al soltarlo: el toque es de quien lo
+        // recibió primero. Además, al soltar en táctil el dedo ya no está y no
+        // habría nada encima de lo que preguntar.
+        _pressStartedOverUI = UIPointer.IsOver(_currentPos);
     }
 
     private void HandlePressEnded()
     {
         if (!_isPressed) return;
         _isPressed = false;
+
+        // El gesto empezó sobre un botón, así que es suyo. Sin esto el mundo
+        // recibe el mismo toque por debajo: pulsar pausa abría además el panel
+        // de mejoras del taller que hubiera detrás.
+        if (_pressStartedOverUI) return;
 
         float distance = Vector2.Distance(_pressStartPos, _currentPos);
         if (distance <= maxTapDistance)
