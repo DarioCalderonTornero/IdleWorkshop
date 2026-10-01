@@ -46,8 +46,7 @@ public class WorkStationUnlockUI : MonoBehaviour
     [SerializeField] private Color buttonReadyColor = new(0.30f, 0.72f, 0.36f);
     [SerializeField] private Color buttonBlockedColor = new(0.45f, 0.45f, 0.45f);
 
-    // Lo último que se dibujó. Si no cambia nada, no se toca el texto: TMP
-    // regenera la malla cada vez que se le asigna uno.
+ 
     private int _shownIndex = int.MinValue;
     private int _shownUnlocked = -1;
     private int _shownLevel = -1;

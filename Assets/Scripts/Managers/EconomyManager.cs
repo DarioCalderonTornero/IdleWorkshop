@@ -78,22 +78,6 @@ public class EconomyManager : MonoBehaviour
         _rateMeter = new EarningsRateMeter(rateWindowSeconds, 60, rateMinSampleSeconds);
     }
 
-    private void Update()
-    {
-        _rateMeter.Advance(Time.unscaledDeltaTime);
-
-         /////TEST/////
-         if (UnityEngine.InputSystem.Keyboard.current.qKey.wasPressedThisFrame)
-        {
-            Time.timeScale = 2.0f;
-        }
-
-         if (UnityEngine.InputSystem.Keyboard.current.wKey.wasPressedThisFrame)
-        {
-            Time.timeScale = 1.0f;
-        }
-    }
-
     // ── API pública ─────────────────────────────────────────────────
 
     /// <summary>

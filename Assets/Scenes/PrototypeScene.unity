@@ -8306,6 +8306,52 @@ SpriteRenderer:
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
   m_SpriteSortPoint: 0
+--- !u!1 &418485749
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 418485750}
+  - component: {fileID: 418485751}
+  m_Layer: 0
+  m_Name: ButtonSoundManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &418485750
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 418485749}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 753062473}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &418485751
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 418485749}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c6e5a08d54dfd9b4cb98577e22c6656d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ButtonSoundManager
+  buttonClickAudioClip: {fileID: 8300000, guid: 0408dd441e11e8745830f4fe5ddeafcb, type: 3}
+  volume: 1
 --- !u!1 &421413582
 GameObject:
   m_ObjectHideFlags: 0
@@ -14619,7 +14665,7 @@ Transform:
   m_GameObject: {fileID: 747952052}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 2.8, y: 1, z: 0}
+  m_LocalPosition: {x: 1.34, y: 0.677, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -14666,6 +14712,7 @@ Transform:
   - {fileID: 917254471}
   - {fileID: 1257220995}
   - {fileID: 510875113}
+  - {fileID: 418485750}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &753119733 stripped
@@ -18315,7 +18362,7 @@ AudioSource:
   OutputAudioMixerGroup: {fileID: 0}
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
-  m_PlayOnAwake: 1
+  m_PlayOnAwake: 0
   m_Volume: 1
   m_Pitch: 1
   Loop: 0
@@ -30337,6 +30384,7 @@ GameObject:
   - component: {fileID: 1526660541}
   - component: {fileID: 1526660540}
   - component: {fileID: 1526660539}
+  - component: {fileID: 1526660542}
   m_Layer: 5
   m_Name: UpgradeButton
   m_TagString: Untagged
@@ -30446,6 +30494,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1526660537}
   m_CullTransparentMesh: 1
+--- !u!114 &1526660542
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1526660537}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c13220add04db594fb657f4550a56491, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NoClickSound
 --- !u!1 &1531189401
 GameObject:
   m_ObjectHideFlags: 0
@@ -37070,6 +37130,7 @@ MonoBehaviour:
   unlockButton: {fileID: 510885179}
   unlockCostText: {fileID: 921688442}
   evolutionBarFill: {fileID: 1658686771}
+  upgradeAudioClip: {fileID: 8300000, guid: fd03d76e841cd544ab3ef435d0d0a2dd, type: 3}
 --- !u!114 &1870090506
 MonoBehaviour:
   m_ObjectHideFlags: 0

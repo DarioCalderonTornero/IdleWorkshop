@@ -46,4 +46,34 @@ public static class UIPointer
 
         return false;
     }
+
+    /// <summary>
+    /// El componente de tipo T que hay bajo ese punto de pantalla, o null.
+    ///
+    /// Solo mira el impacto de más arriba: lo que esté tapado por un panel no
+    /// recibe el toque, igual que en el sistema de eventos de Unity. Si mirara
+    /// todos los impactos, un botón escondido detrás de un panel opaco se daría
+    /// por pulsado.
+    /// </summary>
+    public static T TopmostUI<T>(Vector2 screenPos) where T : Component
+    {
+        EventSystem events = EventSystem.current;
+        if (events == null) return null;
+
+        PointerEventData data = new(events) { position = screenPos };
+
+        _hits.Clear();
+        events.RaycastAll(data, _hits);
+
+        for (int i = 0; i < _hits.Count; i++)
+        {
+            if (_hits[i].module is not GraphicRaycaster) continue;
+
+            // GetComponentInParent y no GetComponent: el raycast suele golpear
+            // la imagen o el texto que hay dentro del botón, no el botón.
+            return _hits[i].gameObject.GetComponentInParent<T>();
+        }
+
+        return null;
+    }
 }

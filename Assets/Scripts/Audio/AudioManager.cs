@@ -51,6 +51,6 @@ public class AudioManager : MonoBehaviour
     {
         if (clip == null) return;
 
-        musicAudioSource.PlayOneShot(clip, volume);
+        SFXAudioSource.PlayOneShot(clip, volume);
     }
 }

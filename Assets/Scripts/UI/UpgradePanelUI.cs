@@ -28,6 +28,10 @@ public class UpgradePanelUI : SlidingPanelUI
     [Header("Barra de evolución")]
     [SerializeField] private Image evolutionBarFill;
 
+    [Header("Sound")]
+    [SerializeField] private AudioClip upgradeAudioClip;
+
+
     protected override void Awake()
     {
         if (Instance != null) { Destroy(gameObject); return; }
@@ -197,6 +201,8 @@ public class UpgradePanelUI : SlidingPanelUI
 
         currentTarget.Upgrade();
         RefreshUI();
+
+        AudioManager.Instance.PlaySFX(upgradeAudioClip, 1f);
 
         // Si esa subida ha sacado una pieza nueva, el fantasma pasa a la
         // siguiente; y si era la última, desaparece.
