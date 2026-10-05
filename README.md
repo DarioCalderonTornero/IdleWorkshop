@@ -1,4 +1,4 @@
-# 🔧 Idle Workshop — Mobile Idle Tycoon
+# 🔧 Idle Workshop, Mobile Idle Tycoon
 
 > A mobile idle tycoon built in Unity 6: customers drop off items, workers repair them across unlockable workshops, and the economy keeps running while the player is away. Playable prototype, in active development.
 
@@ -15,7 +15,7 @@
 
 The player runs a repair workshop. Customers arrive at reception, leave an item and wait; workers carry it to a workstation, repair it and deliver the result back. Coins come in continuously and are spent on upgrades that widen the loop: faster workers, bigger carts, new rooms and new workstations.
 
-As an idle game, the central design problem is that **progress has to continue when nobody is playing** — which is what drives the offline earnings, the save system and the data-driven upgrade architecture below.
+As an idle game, the central design problem is that **progress has to continue when nobody is playing**, and that is what drives the offline earnings, the save system and the data-driven upgrade architecture below.
 
 ---
 
@@ -29,10 +29,10 @@ As an idle game, the central design problem is that **progress has to continue w
 
 ### 💾 Save System
 A full custom save layer instead of scattered `PlayerPrefs` calls:
-- `ISaveableElement` — anything persistent implements it and registers itself
-- `SaveRegistry`, `WorkerRegistry` and `WorkStationRegistry` — track live objects and rebuild them on load
-- `SaveIdentity` — stable ids so objects survive scene reloads
-- `SaveManager`, `SaveData`, `SaveFile` and `SaveFormat` — serialization, versioning and disk I/O
+- `ISaveableElement`: anything persistent implements it and registers itself
+- `SaveRegistry`, `WorkerRegistry` and `WorkStationRegistry`: track live objects and rebuild them on load
+- `SaveIdentity`: stable ids so objects survive scene reloads
+- `SaveManager`, `SaveData`, `SaveFile` and `SaveFormat`: serialization, versioning and disk I/O
 
 ### ⬆️ Upgrade & Unlock System
 Data-driven, so new upgrades don't require touching existing code:
@@ -60,10 +60,10 @@ Data-driven, so new upgrades don't require touching existing code:
 - `AudioManager` and `ButtonSoundManager`, with a `NoClickSound` opt-out marker
 
 ### 🧰 Custom Editor Tooling
-- `SaveAudit` — inspects what is actually being persisted and flags objects missing a save identity
-- `UpgradeAudit` — validates upgrade data for gaps and inconsistent costs
-- `Taller1Builder` — scene builder for workshop layouts
-- `LayerSetup` — project layer configuration
+- `SaveAudit`: inspects what is actually being persisted and flags objects missing a save identity
+- `UpgradeAudit`: validates upgrade data for gaps and inconsistent costs
+- `Taller1Builder`: scene builder for workshop layouts
+- `LayerSetup`: project layer configuration
 
 ---
 
@@ -89,7 +89,7 @@ Playable prototype under active development. The economy, save, upgrade, worker 
 
 ## 👤 Author
 
-**Darío Calderón Tornero** — Gameplay Programmer (Unity & Unreal Engine 5)
+**Darío Calderón Tornero**, Gameplay Programmer (Unity & Unreal Engine 5)
 [Portfolio](https://dariogamedev.com) · [LinkedIn](https://www.linkedin.com/in/dariocalderontornero/) · [GitHub](https://github.com/DarioCalderonTornero)
 
 ---
