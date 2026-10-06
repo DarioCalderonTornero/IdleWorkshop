@@ -6,8 +6,9 @@
 ![Language](https://img.shields.io/badge/Language-C%23-purple)
 ![Platform](https://img.shields.io/badge/Platform-Mobile-green?logo=android)
 ![Status](https://img.shields.io/badge/Status-In%20development-yellow)
+![Team](https://img.shields.io/badge/Team-4%20people-lightgrey)
 
-> **About this repository.** Public copy of an in-progress project, published with the team's permission so the code can be reviewed. The full commit history is preserved.
+> **About this repository.** Public copy of an in-progress project, developed by a team of 4 and published with the team's permission so the code can be reviewed. The full commit history is preserved.
 
 ---
 
@@ -84,6 +85,14 @@ Data-driven, so new upgrades don't require touching existing code:
 ## 🚧 Status
 
 Playable prototype under active development. The economy, save, upgrade, worker and reception loops are implemented; content, balancing, art and monetization are still in progress.
+
+---
+
+## 👥 Team & My Role
+
+Developed by a team of **4**: two programmers, one artist and one game designer.
+
+I work on the programming side together with the other programmer, the same partner I shipped [BipBop](https://github.com/DarioCalderonTornero/BipBop) with on Google Play. The systems documented above (economy and offline earnings, save layer, upgrade and unlock architecture, worker simulation and the editor tooling) are the part of the project I have been building.
 
 ---
 
